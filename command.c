@@ -135,7 +135,7 @@ parse_line (const char *l)
     size_t cpt = 0;
     size_t size = xstrlen (l);
     int new_word = 0, first = 1, new_command = 0, begin = 1, i = 0, factor = 1,
-        factor2 = 1, arg = 0;
+        factor2 = 1, arg = 0, squote = 0, dquote = 0;
     cmd *curr = NULL;
     ret = xmalloc (sizeof (*ret));
     if (ret == NULL)
@@ -151,7 +151,19 @@ parse_line (const char *l)
     }
     while (cpt < size)
     {
-        if (cpt < size && l[cpt] == ' ')
+        if (l[cpt] == '\'' && !dquote)
+        {
+            cpt++;
+            squote = !squote;
+            continue;
+        }
+        if (l[cpt] == '"' && !squote)
+        {
+            cpt++;
+            dquote = !dquote;
+            continue;
+        }
+        if (l[cpt] == ' ' && !(squote || dquote))
         {
             cpt++;
             if (!first)
@@ -174,7 +186,7 @@ parse_line (const char *l)
             }
             continue;
         }
-        if (cpt < size && l[cpt] == '|')
+        if (l[cpt] == '|' && !(squote || dquote))
         {
             cpt++;
             if (i != 0 && begin)
