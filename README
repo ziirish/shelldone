@@ -1,0 +1,14 @@
+Shelldone is just a shell written in C from scratch so I can play with it.
+I guess it will never be as complete as zsh/csh/bash/whatever, but actually it
+is not my goal.
+I'm just working on it to learn and improve my skills in C programming.
+
+Compilation
+-----------
+
+$ make
+
+Execution
+---------
+
+$ ./shelldone
