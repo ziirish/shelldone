@@ -135,7 +135,7 @@ parse_line (const char *l)
     size_t cpt = 0;
     size_t size = xstrlen (l);
     int new_word = 0, first = 1, new_command = 0, begin = 1, i = 0, factor = 1,
-        factor2 = 1;
+        factor2 = 1, arg = 0;
     cmd *curr = NULL;
     ret = xmalloc (sizeof (*ret));
     if (ret == NULL)
@@ -168,6 +168,7 @@ parse_line (const char *l)
                 new_word = 1;
                 factor = 1;
                 factor2 = 1;
+                arg = 0;
                 i = 0;
                 begin = 0;
             }
@@ -190,6 +191,7 @@ parse_line (const char *l)
             begin = 1;
             factor = 1;
             factor2 = 1;
+            arg = 0;
             first = 1;
             i = 0;
             continue;
@@ -236,7 +238,7 @@ parse_line (const char *l)
         }
         else if (new_word)
         {
-            if (curr->argc == 0)
+            if (curr->argc == 0 && !arg)
             {
                 curr->argv = xcalloc (factor * ARGC, sizeof (char *));
                 if (curr->argv == NULL)
@@ -245,6 +247,7 @@ parse_line (const char *l)
                     free_line (ret);
                     return NULL;
                 }
+                arg = 1;
             }
             else if (curr->argc >= factor * ARGC)
             {

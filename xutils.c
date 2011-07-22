@@ -22,14 +22,14 @@ xfree (void *ptr)
 size_t
 xstrlen (const char *in)
 {
-/*    const char *s; */
+    const char *s; 
     if (in == NULL)
     {
         return 0;
     }
-/*    for (s = in; *s; ++s); */
-/*    return (s - in); */
-    return strlen (in);
+    for (s = in; *s; ++s); 
+    return (s - in); 
+/*    return strlen (in); */
 }
 
 void *
