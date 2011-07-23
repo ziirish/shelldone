@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-Wall -Werror -std=c89 -g -DNDEBUG -lreadline
+CFLAGS=-Wall -Werror -std=c89 -g -DNDEBUG
 LDFLAGS=
 SOURCES=shelldone.c xutils.c command.c
 OBJECTS=$(SOURCES:.c=.o)

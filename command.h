@@ -4,6 +4,17 @@
 typedef struct _command_line cmd;
 typedef struct _line line;
 
+typedef enum {
+    PIPE = 1,
+    WRITE,
+    APPEND,
+    READ,
+    FREAD,
+    OR,
+    AND,
+    END
+} CmdFlag;
+
 struct _command_line {
     /* command */
     char *cmd;
@@ -11,6 +22,8 @@ struct _command_line {
     char **argv;
     /* nb arguments */
     int argc;
+    /* cmd flag */
+    CmdFlag flag;
     /* next cmd */
     cmd *next;
     /* prev cmd */

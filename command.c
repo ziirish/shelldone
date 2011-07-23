@@ -119,9 +119,12 @@ dump_line (line *ptr)
     if (ptr != NULL)
     {
         cmd *tmp = ptr->head;
-        fprintf (stdout, "nb commands: %d\n", ptr->nb);
+        int cpt = 0;
+        if (ptr->nb > 0)
+            fprintf (stdout, "nb commands: %d\n", ptr->nb);
         while (tmp != NULL)
         {
+            fprintf (stdout, "=== Dump cmd n°%d ===\n", ++cpt);
             dump_cmd (tmp);
             tmp = tmp->next;
         }
@@ -310,8 +313,11 @@ parse_line (const char *l)
     {   
         curr->argv[curr->argc][i] = '\0';
         curr->argc++;
-    }   
-    line_append (&ret, curr);
+    }  
+    if (curr->cmd != NULL)
+        line_append (&ret, curr);
+    else
+        free_cmd (curr);
     return ret;
 }
 
