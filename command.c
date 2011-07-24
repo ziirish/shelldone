@@ -1,16 +1,20 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "callbacks.h"
 #include "command.h"
 #include "xutils.h"
 
 #define BUF 128
 #define ARGC 10
 
-cmd *
+static callback calls[] = {{"cd", (cmd_callback) sd_cd},
+                           {NULL, NULL}};
+
+command *
 new_cmd (void)
 {
-    cmd *ret = xmalloc (sizeof (*ret));
+    command *ret = xmalloc (sizeof (*ret));
     if (ret != NULL)
     {
         ret->cmd = NULL;
@@ -23,7 +27,7 @@ new_cmd (void)
 }
 
 void
-free_cmd (cmd *ptr)
+free_cmd (command *ptr)
 {
     if (ptr != NULL)
     {
@@ -37,15 +41,15 @@ free_cmd (cmd *ptr)
 }
 
 void
-free_line (line *ptr)
+free_line (input_line *ptr)
 {
     if (ptr != NULL)
     {
         int cpt = 0;
-        cmd *tmp = ptr->head;
+        command *tmp = ptr->head;
         while (cpt < ptr->nb && tmp != NULL)
         {
-            cmd *tmp2 = tmp->next;
+            command *tmp2 = tmp->next;
             free_cmd (tmp);
             tmp = tmp2;
             cpt++;
@@ -55,7 +59,7 @@ free_line (line *ptr)
 }
 
 static void
-line_append (line **ptr, cmd *data)
+line_append (input_line **ptr, command *data)
 {
     if (*ptr != NULL && data != NULL)
     {
@@ -77,10 +81,10 @@ line_append (line **ptr, cmd *data)
     }
 }
 
-static cmd *
-copy_cmd (const cmd *src)
+static command *
+copy_cmd (const command *src)
 {
-    cmd *ret = new_cmd ();
+    command *ret = new_cmd ();
     if (ret == NULL)
         return NULL;
     ret->cmd = xstrdup (src->cmd);
@@ -101,7 +105,7 @@ copy_cmd (const cmd *src)
 }
 
 void
-dump_cmd (cmd *ptr)
+dump_cmd (command *ptr)
 {
     if (ptr != NULL)
     {
@@ -114,11 +118,11 @@ dump_cmd (cmd *ptr)
 }
 
 void
-dump_line (line *ptr)
+dump_line (input_line *ptr)
 {
     if (ptr != NULL)
     {
-        cmd *tmp = ptr->head;
+        command *tmp = ptr->head;
         int cpt = 0;
         if (ptr->nb > 0)
             fprintf (stdout, "nb commands: %d\n", ptr->nb);
@@ -131,15 +135,15 @@ dump_line (line *ptr)
     }
 }
 
-line *
+input_line *
 parse_line (const char *l)
 {
-    line *ret;
+    input_line *ret;
     size_t cpt = 0;
     size_t size = xstrlen (l);
     int new_word = 0, first = 1, new_command = 0, begin = 1, i = 0, factor = 1,
         factor2 = 1, arg = 0, squote = 0, dquote = 0;
-    cmd *curr = NULL;
+    command *curr = NULL;
     ret = xmalloc (sizeof (*ret));
     if (ret == NULL)
         return NULL;
@@ -215,7 +219,7 @@ parse_line (const char *l)
         if (new_command)
         {
             new_command = 0;
-            cmd *tmp = copy_cmd (curr);
+            command *tmp = copy_cmd (curr);
             line_append (&ret, tmp);
             free_cmd (curr);
             curr = new_cmd ();
@@ -325,7 +329,7 @@ char *
 read_line (const char *prompt)
 {
     char *ret = xmalloc (BUF * sizeof (char));
-    int cpt = 0, ind = 1;
+    int cpt = 0, ind = 1, nb_lines = 0, antislashes = 0;
     char c;
     if (ret == NULL)
         return NULL;
@@ -334,8 +338,21 @@ read_line (const char *prompt)
         fprintf (stdout, "%s", prompt);
         fflush (stdout);
     }
-    while ((c = getchar ()) != '\n')
+    c = getchar ();
+    while (c != '\n' || nb_lines != antislashes)
     {
+        if (c == '\\')
+        {
+            c = getchar ();
+            antislashes++;
+            continue;
+        }
+        if (c == '\n')
+        {
+            c = getchar ();
+            nb_lines++;
+            continue;
+        }
         if (cpt >= ind * BUF)
         {
             ind++;
@@ -349,6 +366,7 @@ read_line (const char *prompt)
         }
         ret[cpt] = c;
         cpt++;
+        c = getchar ();
     }
     if (cpt >= ind * BUF)
     {
@@ -364,3 +382,34 @@ read_line (const char *prompt)
     return ret;
 }
 
+void
+parse_command (command *ptr)
+{
+    if (ptr != NULL)
+    {
+        cmd_callback call = NULL;
+        int i = 0;
+        while (calls[i].key != NULL)
+        {
+            if (xstrcmp (ptr->cmd, calls[i].key) == 0)
+            {
+                call = calls[i].func;
+                break;
+            }
+            i++;
+        }
+        if (call != NULL)
+        {
+            call (ptr->argc, ptr->argv);
+        }
+    }
+}
+
+void
+run_line (input_line *ptr)
+{
+    if (ptr != NULL)
+    {
+        parse_command (ptr->head);
+    }
+}

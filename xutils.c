@@ -98,3 +98,20 @@ xstrcmp (const char *c1, const char *c2)
         return +1;
     return strncmp (c1, c2, s1);
 }
+
+char *
+xstrcat (char *dest, const char *src)
+{
+    char *save = xstrdup (dest);
+    size_t len = xstrlen (save) + xstrlen (src) + 1;
+    xfree (dest);
+    dest = xmalloc (len);
+    if (dest == NULL)
+    {
+        return NULL;
+    }
+    snprintf (dest, len, "%s%s", save, src);
+    xfree (save);
+    return dest;
+}
+

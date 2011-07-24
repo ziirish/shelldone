@@ -95,8 +95,9 @@ main (int argc, char **argv)
         xfree (pt);
         if (xstrcmp ("quit", li) == 0)
             break;
-        line *l = parse_line (li);
+        input_line *l = parse_line (li);
         dump_line (l);
+        run_line (l);
         free_line (l);
         xfree (li);
     }

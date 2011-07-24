@@ -1,8 +1,8 @@
 #ifndef _COMMAND_H_
 #define _COMMAND_H_
 
-typedef struct _command_line cmd;
-typedef struct _line line;
+typedef struct _command_line command;
+typedef struct _line input_line;
 
 typedef enum {
     PIPE = 1,
@@ -25,33 +25,37 @@ struct _command_line {
     /* cmd flag */
     CmdFlag flag;
     /* next cmd */
-    cmd *next;
+    command *next;
     /* prev cmd */
-    cmd *prev;
+    command *prev;
 };
 
 /* a double linked list */
 struct _line {
     /* head command */
-    cmd *head;
+    command *head;
     /* tail command */
-    cmd *tail;
+    command *tail;
     /* nb commands */
     int nb;
 };
 
-cmd *new_cmd (void);
+command *new_cmd (void);
 
-void free_cmd (cmd *ptr);
+void free_cmd (command *ptr);
 
-void free_line (line *ptr);
+void free_line (input_line *ptr);
 
-void dump_cmd (cmd *ptr);
+void dump_cmd (command *ptr);
 
-void dump_line (line *ptr);
+void dump_line (input_line *ptr);
 
-line *parse_line (const char *line);
+input_line *parse_line (const char *line);
 
 char *read_line (const char *prompt);
+
+void parse_command (command *ptr);
+
+void run_line (input_line *ptr);
 
 #endif

@@ -15,4 +15,6 @@ size_t xstrlen (const char *src);
 
 int xstrcmp (const char *c1, const char *c2);
 
+char *xstrcat (char *dest, const char *src);
+
 #endif
