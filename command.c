@@ -329,8 +329,8 @@ char *
 read_line (const char *prompt)
 {
     char *ret = xmalloc (BUF * sizeof (char));
-    int cpt = 0, ind = 1, nb_lines = 0, antislashes = 0;
-    char c;
+    int cpt = 0, ind = 1, nb_lines = 0, antislashes = 0, read_tmp = 0;
+    char c, tmp;
     if (ret == NULL)
         return NULL;
     if (prompt != NULL && xstrlen (prompt) > 0)
@@ -343,9 +343,14 @@ read_line (const char *prompt)
     {
         if (c == '\\')
         {
-            c = getchar ();
-            antislashes++;
-            continue;
+            tmp = getchar ();
+            if (tmp == '\n')
+            {
+                c = tmp;
+                antislashes++;
+                continue;
+            }
+            read_tmp = 1;
         }
         if (c == '\n')
         {
@@ -353,6 +358,7 @@ read_line (const char *prompt)
             nb_lines++;
             continue;
         }
+replay:
         if (cpt >= ind * BUF)
         {
             ind++;
@@ -363,6 +369,14 @@ read_line (const char *prompt)
                 return NULL;
             }
             ret = new;
+        }
+        if (read_tmp)
+        {
+            read_tmp = 0;
+            ret[cpt] = c;
+            c = tmp;
+            cpt++;
+            goto replay;
         }
         ret[cpt] = c;
         cpt++;
