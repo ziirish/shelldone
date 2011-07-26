@@ -32,6 +32,13 @@
 #ifndef _XUTILS_H_
 #define _XUTILS_H_
 
+extern int xmin (int a, int b);
+
+extern int xmax (int a, int b);
+
+void xfree_list (char **list, int size);
+#define xafree_list(list) xfree_list (list, -1)
+
 void xfree (void *ptr);
 
 void *xmalloc (size_t size);
@@ -47,5 +54,10 @@ size_t xstrlen (const char *src);
 int xstrcmp (const char *c1, const char *c2);
 
 char *xstrcat (char *dest, const char *src);
+
+char **xstrsplit (char *src, const char *token, size_t *size);
+
+char *xstrjoin (char **tab, int size, const char *join);
+#define xastrjoin(tab, join) xstrjoin (tab, -1, join);
 
 #endif

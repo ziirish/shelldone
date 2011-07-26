@@ -41,7 +41,24 @@
 #define ARGC 10
 
 static callback calls[] = {{"cd", (cmd_callback) sd_cd},
+                           {"pwd", (cmd_callback) sd_pwd},
                            {NULL, NULL}};
+
+static char *
+completion (char *buf, int ind)
+{
+    char *tmp = xmalloc (ind);
+    char **split;
+    size_t s_split;
+    int i;
+    for (i = 0; i < ind - 1; i++, tmp[i] = buf[i]);
+    tmp[i] = '\0';
+    split = xstrsplit (tmp, " ", &s_split);
+
+    xfree_list (split, s_split);
+    xfree (tmp);
+    return NULL;
+}
 
 command *
 new_cmd (void)
@@ -376,8 +393,13 @@ read_line (const char *prompt)
     {
         if (c == '\t')
         {
+            /*
             fprintf (stdout, "[TAB]");
             fflush (stdout);
+            */
+            completion (ret, cpt);
+            read (0, &c, 1);
+            continue;
         }
         else if (c != '\n')
         {
@@ -448,6 +470,7 @@ replay:
 void
 parse_command (command *ptr)
 {
+    int r;
     if (ptr != NULL)
     {
         cmd_callback call = NULL;
@@ -463,7 +486,7 @@ parse_command (command *ptr)
         }
         if (call != NULL)
         {
-            call (ptr->argc, ptr->argv);
+            r = call (ptr->argc, ptr->argv);
         }
     }
 }

@@ -41,7 +41,24 @@
 #include "xutils.h"
 #include "callbacks.h"
 
-void 
+int 
+sd_pwd (int argc, char **argv)
+{
+    if (argc > 0)
+    {
+        fprintf (stderr, "ERROR: too many arguments\n");
+        fprintf (stderr, "usage: pwd\n");
+        return 1;
+    }
+
+    fprintf (stdout, "%s\n", getenv ("PWD"));
+
+    (void) argv;
+
+    return 0;
+}
+
+int 
 sd_cd (int argc, char **argv)
 {
     char *target;
@@ -49,7 +66,7 @@ sd_cd (int argc, char **argv)
     {
         fprintf (stderr, "ERROR: too many arguments\n");
         fprintf (stderr, "usage: cd [directory]\n");
-        return;
+        return 1;
     }
     if (argc == 0 || xstrcmp (argv[0], "~") == 0)
     {
@@ -83,10 +100,18 @@ sd_cd (int argc, char **argv)
     {
         xfree (target);
         perror ("cd");
-        return;
+        return 2;
     }
     else
     {
+        if (argc != 0 && xstrcmp (argv[0], "-") == 0)
+        {
+            char *tmp = getenv ("OLDPWD");
+            setenv ("OLDPWD", getenv ("PWD"), 1);
+            setenv ("PWD", tmp, 1);
+            xfree (target);
+            return 0;
+        }
         setenv ("OLDPWD", getenv ("PWD"), 1);
         if (*target == '/')
         {
@@ -94,13 +119,53 @@ sd_cd (int argc, char **argv)
         }
         else if (xstrcmp (target, ".") != 0)
         {
-            char *oldpwd = getenv ("OLDPWD");
-            size_t len = xstrlen (oldpwd) + xstrlen (target) + 2;
-            char *tmp = xmalloc (len);
-            snprintf (tmp, len, "%s/%s", oldpwd, target);
-            setenv ("PWD", tmp, 1);
-            xfree (tmp);
+            char *oldpwd = xstrdup (getenv ("OLDPWD")), *res;
+            size_t s_old, s_tar;
+            char **old_tab, **tar_tab, **full;
+            int i, j;
+            old_tab = xstrsplit (oldpwd, "/", &s_old);
+            tar_tab = xstrsplit (target, "/", &s_tar);
+            full = xcalloc ((s_old + s_tar), sizeof (char *));
+            for (i = 0, j = 0; i < (int) s_old; i++, j++)
+            {
+                full[j] = xstrdup (old_tab[i]);
+            }
+            for (i = 0; i < (int) s_tar; i++, j++)
+            {
+                full[j] = xstrdup (tar_tab[i]);
+            }
+            xfree_list (old_tab, s_old);
+            xfree_list (tar_tab, s_tar);
+            xfree (oldpwd);
+            i = 0;
+            j = 0;
+            while (i < (int) (s_old + s_tar))
+            {
+                if (xstrcmp (full[i], "..") == 0)
+                {
+                    j = xmax (j-1, 0);
+                    xfree (full[j]);
+                    full[j] = NULL;
+                    xfree (full[i]);
+                    full[i] = NULL;
+                    i++;
+                    continue;
+                }
+                full[j] = full[i];
+                j++;
+                i++;
+            }
+
+            res = xstrjoin (full, j, "/");
+            if (xstrcmp (res, "") != 0)
+                setenv ("PWD", res, 1);
+            else
+                setenv ("PWD", "/", 1);
+
+            xfree_list (full, j);
+            xfree (res); 
         }
     }
     xfree (target);
+    return 0;
 }

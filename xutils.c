@@ -34,12 +34,44 @@
 #endif
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <unistd.h>
 #include <string.h>
-#include <assert.h>
-#include <stdio.h>
+#include <err.h>
 
 #include "xutils.h"
+
+inline int
+xmin (int a, int b)
+{
+    return a < b ? a : b;
+}
+
+inline int
+xmax (int a, int b)
+{
+    return a > b ? a : b;
+}
+
+void
+xfree_list (char **list, int size)
+{
+    if (list != NULL)
+    {
+        if (size < 0)
+        {
+            for (; *list != NULL; list++)
+                xfree (*list);
+        }
+        else
+        {
+            int i;
+            for (i = 0; i < size; i++)
+                xfree (list[i]);
+        }
+        xfree (list);
+    }
+}
 
 void
 xfree (void *ptr)
@@ -67,7 +99,7 @@ xmalloc (size_t size)
 {
     void *ret = malloc (size);
     if (ret == NULL)
-        perror ("xmalloc");
+        err (2, "xmalloc can not allocate %lu bytes", (u_long) size);
     return ret;
 }
 
@@ -76,7 +108,7 @@ xcalloc (size_t nmem, size_t size)
 {
     void *ret = calloc (nmem, size);
     if (ret == NULL)
-        perror ("xcalloc");
+        err (2, "xcalloc can not allocate %lu bytes", (u_long) (size * nmem));
     return ret;
 }
 
@@ -93,7 +125,7 @@ xrealloc (void *src, size_t new_size)
         ret = realloc (src, new_size);
     }
     if (ret == NULL)
-        perror ("xrealloc");
+        err (2, "xrealloc can not reallocate %lu bytes", (u_long) new_size);
     return ret;
 }
 
@@ -145,3 +177,85 @@ xstrcat (char *dest, const char *src)
     return dest;
 }
 
+char **
+xstrsplit (char *src, const char *token, size_t *size)
+{
+    char **ret;
+    int n = 1;
+    char *save, *tmp = strtok_r (src, token, &save);
+    *size = 0;
+    if (tmp == NULL)
+    {
+        return NULL;
+    }
+    ret = xcalloc (10, sizeof (char *));
+    while (tmp != NULL)
+    {
+        if ((int) *size > n * 10)
+        {
+            n++;
+            char **new = xrealloc (ret, n * 10 * sizeof (char *));
+            if (new == NULL)
+            {
+                for (;*size > 0; (*size)--)
+                    xfree (ret[*size-1]);
+                xfree (ret);
+                return NULL;
+            }
+        }
+        ret[*size] = xstrdup (tmp);
+        tmp = strtok_r (NULL, token, &save);
+        (*size)++;
+    }
+
+    return ret;
+}
+
+char *
+xstrjoin (char **tab, int size, const char *join)
+{
+    char *ret;
+    size_t len = 0, tot = sizeof (tab) / sizeof (char *);
+    int i, first = 1;
+    if (size > 0)
+    {
+        for (i = 0; i < size; i++)
+            len += xstrlen (tab[i]);
+    }
+    else
+    {
+        for (i = 0; i < (int) tot && tab[i] != NULL; i++)
+            len += xstrlen (tab[i]);
+    }
+    len += (size > 0 ? size : i) * xstrlen (join);
+    ret = xmalloc ((len + 1) * sizeof (char));
+    --i; 
+    for (; i >= 0; i--)
+    {
+        if (first)
+        {
+            snprintf (ret, 
+                      xstrlen (tab[i]) + xstrlen (join) + 1, 
+                      "%s%s",
+                      join,
+                      tab[i]);
+            first = 0;
+        }
+        else
+        {
+            size_t s = xstrlen (tab[i]) + xstrlen (join) + xstrlen (ret) + 1;
+            char *t = xmalloc (s * sizeof (char));
+            snprintf (t, 
+                      s, 
+                      "%s%s%s", 
+                      join,
+                      tab[i], 
+                      ret);
+            xfree (ret);
+            ret = xstrdup (t);
+            xfree (t);
+        }
+    }
+    ret[len] = '\0';
+    return ret;
+}

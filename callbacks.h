@@ -34,7 +34,7 @@
 
 typedef struct _callback callback;
 
-typedef void (* cmd_callback) (int argc, char **argv);
+typedef int (* cmd_callback) (int argc, char **argv);
 
 struct _callback {
     /* key */
@@ -43,6 +43,8 @@ struct _callback {
     cmd_callback func;
 };
 
-void sd_cd (int argc, char **argv);
+int sd_cd (int argc, char **argv);
+
+int sd_pwd (int argc, char **argv);
 
 #endif

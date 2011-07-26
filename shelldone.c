@@ -37,7 +37,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-#include <assert.h>
 #include <sys/ioctl.h>
 #include <termios.h>
 
@@ -92,6 +91,7 @@ get_prompt (void)
 
     size_t s_home = xstrlen (home);
     size_t s_pwd = xstrlen (full_pwd);
+    size_t full;
 
     if (fpwd != NULL && xstrcmp (full_pwd, fpwd) == 0)
     {
@@ -106,12 +106,7 @@ get_prompt (void)
     {
         size_t size = s_pwd - s_home;
         int cpt = 1;
-        pwd = malloc (size + 2);
-        if (pwd == NULL)
-        {
-            perror ("Memory");
-            exit (1);
-        }
+        pwd = xmalloc (size + 2);
         *pwd = '~';
         while (cpt < (int) size + 2)
         {
@@ -122,7 +117,7 @@ get_prompt (void)
     }
 
     xfree (prompt);
-    size_t full = xstrlen (user) + xstrlen (host) + xstrlen (pwd) + 4;
+    full = xstrlen (user) + xstrlen (host) + xstrlen (pwd) + 4;
     prompt = malloc (full + 1);
     snprintf (prompt, full + 1, "%s@%s:%s$ ", user, host, pwd);
     fpwd = full_pwd;
@@ -152,13 +147,14 @@ main (int argc, char **argv)
         free_line (l);
         xfree (li);
     }
-    
+
 /*    fprintf (stdout, "entered: %s\n", line); */
 
     xfree (li);
     shelldone_clean ();
 
 /* avoid the 'unused variables' warning */
+
     (void) argc;
     (void) argv;
 
