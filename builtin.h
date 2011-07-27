@@ -29,22 +29,24 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
-#ifndef _CALLBACKS_H_
-#define _CALLBACKS_H_
+#ifndef _BUILTIN_H_
+#define _BUILTIN_H_
 
-typedef struct _callback callback;
+typedef struct _builtin builtin;
 
-typedef int (* cmd_callback) (int argc, char **argv);
+typedef void (* cmd_builtin) (int argc, char **argv);
 
-struct _callback {
+struct _builtin {
     /* key */
     char *key;
     /* callback to execute */
-    cmd_callback func;
+    cmd_builtin func;
 };
 
-int sd_cd (int argc, char **argv);
+void sd_cd (int argc, char **argv);
 
-int sd_pwd (int argc, char **argv);
+void sd_pwd (int argc, char **argv);
+
+void sd_echo (int argc, char **argv);
 
 #endif

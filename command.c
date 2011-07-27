@@ -32,17 +32,20 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <sys/wait.h>
 
-#include "callbacks.h"
+#include "builtin.h"
 #include "command.h"
 #include "xutils.h"
 
 #define BUF 128
 #define ARGC 10
 
-static callback calls[] = {{"cd", (cmd_callback) sd_cd},
-                           {"pwd", (cmd_callback) sd_pwd},
-                           {NULL, NULL}};
+static builtin calls[] = {{"cd", (cmd_builtin) sd_cd},
+                          {"pwd", (cmd_builtin) sd_pwd},
+                          {"echo", (cmd_builtin) sd_echo},
+                          {NULL, NULL}};
 
 static char *
 completion (char *buf, int ind)
@@ -71,6 +74,10 @@ new_cmd (void)
         ret->argc = 0;
         ret->next = NULL;
         ret->prev = NULL;
+        ret->flag = END;
+        ret->in = 0;
+        ret->out = 1;
+        ret->err = 2;
     }
     return ret;
 }
@@ -242,7 +249,8 @@ parse_line (const char *l)
             }
             continue;
         }
-        if (l[cpt] == '|' && !(squote || dquote))
+        if (!(squote || dquote) &&
+            (l[cpt] == '|' || l[cpt] == ';' || l[cpt] == '&'))
         {
             cpt++;
             if (i != 0 && begin)
@@ -253,6 +261,30 @@ parse_line (const char *l)
             {
                 curr->argv[curr->argc][i] = '\0';
                 curr->argc++;
+            }
+            switch (l[cpt-1]) 
+            {
+            case '|':
+                if (cpt < size && l[cpt] == '|')
+                {
+                    cpt++;
+                    curr->flag = OR;
+                }
+                else
+                    curr->flag = PIPE;
+                break;
+            case ';':
+                curr->flag = END;
+                break;
+            case '&':
+                if (cpt < size && l[cpt] == '&')
+                {
+                    cpt++;
+                    curr->flag = AND;
+                }
+                else
+                    curr->flag = BG;
+                break;
             }
             new_command = 1;
             new_word = 0;
@@ -366,6 +398,19 @@ parse_line (const char *l)
     {   
         curr->argv[curr->argc][i] = '\0';
         curr->argc++;
+        if (curr->argc >= factor * ARGC)
+        {
+            factor++;
+            char **tmp = xrealloc (curr->argv, factor * ARGC * sizeof (char *));
+            if (tmp == NULL)
+            {
+                free_cmd (curr);
+                free_line (ret);
+                return NULL;
+            }
+            curr->argv = tmp;
+        }
+        curr->argv[curr->argc] = NULL;
     }  
     if (curr->cmd != NULL)
         line_append (&ret, curr);
@@ -378,7 +423,8 @@ char *
 read_line (const char *prompt)
 {
     char *ret = xmalloc (BUF * sizeof (char));
-    int cpt = 0, ind = 1, nb_lines = 0, antislashes = 0, read_tmp = 0;
+    int cpt = 0, ind = 1, nb_lines = 0, antislashes = 0, read_tmp = 0, 
+        for_open = 0;
     char c, tmp;
     if (ret == NULL)
         return NULL;
@@ -389,7 +435,7 @@ read_line (const char *prompt)
     }
 /*    c = getchar (); */
     read (0, &c, 1);
-    while (c != '\n' || nb_lines != antislashes)
+    while (c != '\n' || nb_lines != antislashes || !for_open)
     {
         if (c == '\t')
         {
@@ -467,28 +513,161 @@ replay:
     return ret;
 }
 
-void
-parse_command (command *ptr)
+static unsigned int 
+check_wildcard_match (const char *text, const char *pattern)
 {
-    int r;
-    if (ptr != NULL)
+    const char *rPat;
+    const char *rText;
+    char ch;
+    unsigned int found;
+    unsigned int seq;
+    size_t len;
+    char first, last, prev, mem;
+
+    (void) last;
+    (void) first;
+    (void) mem;
+    (void) seq;
+
+    rPat = NULL;
+    rText = NULL;
+
+    while (*text || *pattern) 
     {
-        cmd_callback call = NULL;
-        int i = 0;
-        while (calls[i].key != NULL)
+        ch = *pattern++;
+
+        switch (ch) 
         {
-            if (xstrcmp (ptr->cmd, calls[i].key) == 0)
+        case '*':
+            rPat = pattern;
+            rText = text;
+            break;
+
+        case '[':
+            found = FALSE;
+
+            while ((ch = *pattern++) != ']') 
             {
-                call = calls[i].func;
+                if (ch == '\\')
+                    ch = *pattern++;
+
+                if (ch == '\0')
+                    return FALSE;
+
+                if (*text == ch)
+                    found = TRUE;
+                prev = ch;
+            }
+            len = xstrlen (text);
+            if (found == FALSE && len != 0) 
+            {
+                return FALSE;
+            }
+            if (found == TRUE) 
+            {
+                if (xstrlen (pattern) == 0 && len == 1) 
+                {
+                    return TRUE;
+                }
+                if (len != 0) 
+                {
+                    text++;
+                    continue;
+                }
+            }
+
+            /* fall into next case */
+
+        case '?':
+            if (*text++ == '\0')
+                return FALSE;
+
+            break;
+
+        case '\\':
+            ch = *pattern++;
+
+            if (ch == '\0')
+                return FALSE;
+
+            /* fall into next case */
+
+        default:
+            if (*text == ch) 
+            {
+                if (*text)
+                    text++;
                 break;
             }
-            i++;
+
+            if (*text) 
+            {
+                pattern = rPat;
+                text = ++rText;
+                break;
+            }
+
+            return FALSE;
         }
-        if (call != NULL)
+
+        if (pattern == NULL)
+            return FALSE;
+    }
+
+    return TRUE;
+}
+
+pid_t
+run_command (command *ptr)
+{
+    pid_t r = -1;
+    if (ptr != NULL)
+    {
+        r = fork ();
+        if (r == 0)
         {
-            r = call (ptr->argc, ptr->argv);
+            if (ptr->in != 0)
+            {
+                close (0);
+                dup (0);
+            }
+            if (ptr->out != 1)
+            {
+                close (1);
+                dup (1);
+            }
+            cmd_builtin call = NULL;
+            int i = 0;
+            while (calls[i].key != NULL)
+            {
+                if (xstrcmp (ptr->cmd, calls[i].key) == 0)
+                {
+                    call = calls[i].func;
+                    break;
+                }
+                i++;
+            }
+            if (call != NULL)
+            {
+                /**
+                 * FIXME: little hack to avoid compilation warning
+                 */
+                for (i = 0; i < ptr->argc; i++)
+                    if (check_wildcard_match (ptr->argv[i], "toto"))
+                    {
+/*                        argv[i] = xstrdup (ptr->argv[i]); */;
+                    }
+                call (ptr->argc, ptr->argv);
+            }
+            else
+            {
+                execvp (ptr->cmd, ptr->argv);
+                perror ("execvp");
+                r = -1;
+            }
         }
     }
+    return r;
 }
 
 void
@@ -496,6 +675,53 @@ run_line (input_line *ptr)
 {
     if (ptr != NULL)
     {
-        parse_command (ptr->head);
+        command *cmd = ptr->head;
+        while (cmd != NULL)
+        {
+            switch (cmd->flag)
+            {
+            case BG:
+            case OR:
+            case AND:
+            case END:
+            {
+                pid_t p = run_command (cmd);
+                waitpid (p, NULL, cmd->flag == BG ? WNOHANG : 0);
+                break;
+            }
+            case PIPE:
+            {
+                int nb = 0, i, fd[2];
+                pid_t *p;
+                command *exec = cmd->next;
+                while (exec != NULL && exec->flag == OR)
+                {
+                    nb++;
+                    exec = exec->next;
+                }
+                p = xmalloc (nb * sizeof (pid_t));
+                exec = cmd;
+                for (i = 0; i < nb; i++)
+                {
+                    pipe (fd);
+                    if (i != nb - 1)
+                        exec->out = fd[1];
+                    p[i] = run_command (exec);
+                    if (exec->out != 1)
+                        close (exec->out);
+                    exec = exec->next;
+                    exec->in = fd[0];
+                }
+                for (i = 0; i < nb; i++)
+                {
+                    if (p[i] != -1)
+                        waitpid (p[i], NULL, 0);
+                }
+                cmd = exec;
+                break;
+            }
+            }
+            cmd = cmd->next;
+        }
     }
 }

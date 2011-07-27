@@ -32,6 +32,9 @@
 #ifndef _XUTILS_H_
 #define _XUTILS_H_
 
+#define TRUE 1
+#define FALSE 0
+
 extern int xmin (int a, int b);
 
 extern int xmax (int a, int b);

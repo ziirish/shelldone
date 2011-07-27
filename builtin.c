@@ -39,26 +39,26 @@
 #include <string.h>
 
 #include "xutils.h"
-#include "callbacks.h"
+#include "builtin.h"
 
-int 
+void 
 sd_pwd (int argc, char **argv)
 {
     if (argc > 0)
     {
         fprintf (stderr, "ERROR: too many arguments\n");
         fprintf (stderr, "usage: pwd\n");
-        return 1;
+        _exit (1);
     }
 
     fprintf (stdout, "%s\n", getenv ("PWD"));
 
     (void) argv;
 
-    return 0;
+    _exit (0);
 }
 
-int 
+void 
 sd_cd (int argc, char **argv)
 {
     char *target;
@@ -66,7 +66,7 @@ sd_cd (int argc, char **argv)
     {
         fprintf (stderr, "ERROR: too many arguments\n");
         fprintf (stderr, "usage: cd [directory]\n");
-        return 1;
+        _exit (1);
     }
     if (argc == 0 || xstrcmp (argv[0], "~") == 0)
     {
@@ -100,7 +100,7 @@ sd_cd (int argc, char **argv)
     {
         xfree (target);
         perror ("cd");
-        return 2;
+        _exit (2);
     }
     else
     {
@@ -110,7 +110,7 @@ sd_cd (int argc, char **argv)
             setenv ("OLDPWD", getenv ("PWD"), 1);
             setenv ("PWD", tmp, 1);
             xfree (target);
-            return 0;
+            _exit (0);
         }
         setenv ("OLDPWD", getenv ("PWD"), 1);
         if (*target == '/')
@@ -167,5 +167,37 @@ sd_cd (int argc, char **argv)
         }
     }
     xfree (target);
-    return 0;
+    _exit (0);
+}
+
+void
+sd_echo (int argc, char **argv)
+{
+    int nflag;
+    int i;
+
+    if (argc < 1)
+        _exit (0);
+
+    if (xstrcmp (argv[0], "-n") == 0) 
+    {
+        nflag = 1;
+    }
+    else
+    {
+        nflag = 0;
+    }
+
+    for (i = nflag ? 1 : 0; i < argc; i++) 
+    {
+        fprintf (stdout, "%s", argv[i]);
+        if (i < argc - 1)
+            fprintf (stdout, " ");
+    }
+    if (!nflag)
+        fprintf (stdout, "\n");
+    else
+        fflush (stdout);
+
+    _exit (0);
 }

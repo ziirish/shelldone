@@ -37,10 +37,7 @@ typedef struct _line input_line;
 
 typedef enum {
     PIPE = 1,
-    WRITE,
-    APPEND,
-    READ,
-    FREAD,
+    BG,
     OR,
     AND,
     END
@@ -55,6 +52,14 @@ struct _command_line {
     int argc;
     /* cmd flag */
     CmdFlag flag;
+    /* stdout */
+    int out;
+    /* stdin */
+    int in;
+    /* stderr */
+    int err;
+    /* file descriptor flag */
+    int oflag;
     /* next cmd */
     command *next;
     /* prev cmd */
