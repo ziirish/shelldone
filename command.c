@@ -44,7 +44,7 @@
 
 static builtin calls[] = {{"cd", (cmd_builtin) sd_cd},
                           {"pwd", (cmd_builtin) sd_pwd},
-                          {"echo", (cmd_builtin) sd_echo},
+/*                          {"echo", (cmd_builtin) sd_echo}, */
                           {NULL, NULL}};
 
 static char *
@@ -423,8 +423,7 @@ char *
 read_line (const char *prompt)
 {
     char *ret = xmalloc (BUF * sizeof (char));
-    int cpt = 0, ind = 1, nb_lines = 0, antislashes = 0, read_tmp = 0, 
-        for_open = 0;
+    int cpt = 0, ind = 1, nb_lines = 0, antislashes = 0, read_tmp = 0;
     char c, tmp;
     if (ret == NULL)
         return NULL;
@@ -435,7 +434,7 @@ read_line (const char *prompt)
     }
 /*    c = getchar (); */
     read (0, &c, 1);
-    while (c != '\n' || nb_lines != antislashes || !for_open)
+    while (c != '\n' || nb_lines != antislashes)
     {
         if (c == '\t')
         {
@@ -528,6 +527,7 @@ check_wildcard_match (const char *text, const char *pattern)
     (void) first;
     (void) mem;
     (void) seq;
+    (void) prev;
 
     rPat = NULL;
     rText = NULL;
@@ -623,9 +623,12 @@ run_command (command *ptr)
     pid_t r = -1;
     if (ptr != NULL)
     {
+        if (xstrcmp (ptr->cmd, "cd") == 0)
+            goto jump;
         r = fork ();
         if (r == 0)
         {
+jump:
             if (ptr->in != 0)
             {
                 close (0);
@@ -661,7 +664,9 @@ run_command (command *ptr)
             }
             else
             {
-                execvp (ptr->cmd, ptr->argv);
+                execvp (ptr->cmd, ptr->argc > 0 ? 
+                                            ptr->argv : 
+                                            (char *[]){"",NULL});
                 perror ("execvp");
                 r = -1;
             }
@@ -686,7 +691,8 @@ run_line (input_line *ptr)
             case END:
             {
                 pid_t p = run_command (cmd);
-                waitpid (p, NULL, cmd->flag == BG ? WNOHANG : 0);
+                if (p != -1)
+                    waitpid (p, NULL, cmd->flag == BG ? WNOHANG : 0);
                 break;
             }
             case PIPE:
@@ -717,7 +723,7 @@ run_line (input_line *ptr)
                     if (p[i] != -1)
                         waitpid (p[i], NULL, 0);
                 }
-                cmd = exec;
+                cmd = exec->next;
                 break;
             }
             }

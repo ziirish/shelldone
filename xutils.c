@@ -170,6 +170,7 @@ xstrcat (char *dest, const char *src)
     dest = xmalloc (len);
     if (dest == NULL)
     {
+        xfree (save);
         return NULL;
     }
     snprintf (dest, len, "%s%s", save, src);

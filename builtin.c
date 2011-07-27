@@ -66,7 +66,8 @@ sd_cd (int argc, char **argv)
     {
         fprintf (stderr, "ERROR: too many arguments\n");
         fprintf (stderr, "usage: cd [directory]\n");
-        _exit (1);
+/*        _exit (1); */
+        return;
     }
     if (argc == 0 || xstrcmp (argv[0], "~") == 0)
     {
@@ -100,7 +101,8 @@ sd_cd (int argc, char **argv)
     {
         xfree (target);
         perror ("cd");
-        _exit (2);
+/*        _exit (2); */
+        return;
     }
     else
     {
@@ -167,7 +169,8 @@ sd_cd (int argc, char **argv)
         }
     }
     xfree (target);
-    _exit (0);
+/*    _exit (0); */
+    return;
 }
 
 void

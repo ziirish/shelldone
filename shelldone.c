@@ -142,7 +142,7 @@ main (int argc, char **argv)
         if (xstrcmp ("quit", li) == 0)
             break;
         input_line *l = parse_line (li);
-        dump_line (l);
+/*        dump_line (l); */
         run_line (l);
         free_line (l);
         xfree (li);
