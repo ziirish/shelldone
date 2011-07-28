@@ -60,6 +60,8 @@ struct _command_line {
     int err;
     /* file descriptor flag */
     int oflag;
+    /* is it a builtin command */
+    unsigned int builtin;
     /* next cmd */
     command *next;
     /* prev cmd */

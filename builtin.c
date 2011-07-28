@@ -41,25 +41,37 @@
 #include "xutils.h"
 #include "builtin.h"
 
-void 
-sd_pwd (int argc, char **argv)
+int 
+sd_pwd (int argc, char **argv, int in, int out)
 {
+    FILE *fd;
     if (argc > 0)
     {
         fprintf (stderr, "ERROR: too many arguments\n");
         fprintf (stderr, "usage: pwd\n");
-        _exit (1);
+/*        _exit (1); */
+        return 1;
     }
 
-    fprintf (stdout, "%s\n", getenv ("PWD"));
+    if (out != 1)
+        fd = fdopen (out, "a");
+    else
+        fd = stdout;
+
+    fprintf (fd, "%s\n", getenv ("PWD"));
+
+    if (out != 1)
+        fclose (fd);
 
     (void) argv;
+    (void) in;
 
-    _exit (0);
+/*    _exit (0); */
+    return 0;
 }
 
-void 
-sd_cd (int argc, char **argv)
+int 
+sd_cd (int argc, char **argv, int in, int out)
 {
     char *target;
     if (argc > 1)
@@ -67,7 +79,7 @@ sd_cd (int argc, char **argv)
         fprintf (stderr, "ERROR: too many arguments\n");
         fprintf (stderr, "usage: cd [directory]\n");
 /*        _exit (1); */
-        return;
+        return 1;
     }
     if (argc == 0 || xstrcmp (argv[0], "~") == 0)
     {
@@ -102,7 +114,7 @@ sd_cd (int argc, char **argv)
         xfree (target);
         perror ("cd");
 /*        _exit (2); */
-        return;
+        return 2;
     }
     else
     {
@@ -112,7 +124,8 @@ sd_cd (int argc, char **argv)
             setenv ("OLDPWD", getenv ("PWD"), 1);
             setenv ("PWD", tmp, 1);
             xfree (target);
-            _exit (0);
+/*            _exit (0); */
+            return 0;
         }
         setenv ("OLDPWD", getenv ("PWD"), 1);
         if (*target == '/')
@@ -170,17 +183,25 @@ sd_cd (int argc, char **argv)
     }
     xfree (target);
 /*    _exit (0); */
-    return;
+    
+    (void) in;
+    (void) out;
+
+    return 0;
 }
 
-void
-sd_echo (int argc, char **argv)
+int
+sd_echo (int argc, char **argv, int in, int out)
 {
     int nflag;
     int i;
 
+    (void) in;
+    (void) out;
+
     if (argc < 1)
-        _exit (0);
+        return 0;
+/*        _exit (0); */
 
     if (xstrcmp (argv[0], "-n") == 0) 
     {
@@ -202,5 +223,6 @@ sd_echo (int argc, char **argv)
     else
         fflush (stdout);
 
-    _exit (0);
+/*    _exit (0); */
+    return 0;
 }

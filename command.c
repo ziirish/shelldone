@@ -33,6 +33,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <err.h>
+#include <errno.h>
 #include <sys/wait.h>
 
 #include "builtin.h"
@@ -78,6 +80,7 @@ new_cmd (void)
         ret->in = 0;
         ret->out = 1;
         ret->err = 2;
+        ret->builtin = FALSE;
     }
     return ret;
 }
@@ -144,18 +147,31 @@ copy_cmd (const command *src)
     if (ret == NULL)
         return NULL;
     ret->cmd = xstrdup (src->cmd);
-    ret->argv = xcalloc (src->argc, sizeof (char *));
-    if (ret->argv != NULL)
+    ret->flag = src->flag;
+    ret->in = src->in;
+    ret->out = src->out;
+    ret->err = src->err;
+    ret->prev = src->prev;
+    ret->next = src->next;
+    if (src->argc > 0)
     {
-        int i;
-        for (i = 0; i < src->argc; i++)
-            ret->argv[i] = xstrdup (src->argv[i]);
-        ret->argc = src->argc;
+        ret->argv = xcalloc (src->argc, sizeof (char *));
+        if (ret->argv != NULL)
+        {
+            int i;
+            for (i = 0; i < src->argc; i++)
+                ret->argv[i] = xstrdup (src->argv[i]);
+            ret->argc = src->argc;
+        }
+        else
+        {
+            free_cmd (ret);
+            return NULL;
+        }
     }
     else
     {
-        free_cmd (ret);
-        return NULL;
+        ret->argv = NULL;
     }
     return ret;
 }
@@ -623,52 +639,60 @@ run_command (command *ptr)
     pid_t r = -1;
     if (ptr != NULL)
     {
-        if (xstrcmp (ptr->cmd, "cd") == 0)
-            goto jump;
-        r = fork ();
-        if (r == 0)
+        cmd_builtin call = NULL;
+        int i = 0;
+        while (calls[i].key != NULL)
         {
-jump:
-            if (ptr->in != 0)
+            if (xstrcmp (ptr->cmd, calls[i].key) == 0)
             {
-                close (0);
-                dup (0);
+                call = calls[i].func;
+                break;
             }
-            if (ptr->out != 1)
-            {
-                close (1);
-                dup (1);
-            }
-            cmd_builtin call = NULL;
-            int i = 0;
-            while (calls[i].key != NULL)
-            {
-                if (xstrcmp (ptr->cmd, calls[i].key) == 0)
+            i++;
+        }
+        if (call != NULL)
+        {
+            /**
+             * FIXME: little hack to avoid compilation warning
+             */
+            for (i = 0; i < ptr->argc; i++)
+                if (check_wildcard_match (ptr->argv[i], "toto"))
                 {
-                    call = calls[i].func;
-                    break;
-                }
-                i++;
-            }
-            if (call != NULL)
-            {
-                /**
-                 * FIXME: little hack to avoid compilation warning
-                 */
-                for (i = 0; i < ptr->argc; i++)
-                    if (check_wildcard_match (ptr->argv[i], "toto"))
-                    {
 /*                        argv[i] = xstrdup (ptr->argv[i]); */;
-                    }
-                call (ptr->argc, ptr->argv);
-            }
-            else
+                }
+            r = call (ptr->argc, ptr->argv, ptr->in, ptr->out);
+            ptr->builtin = TRUE;
+        }
+        else
+        {
+            r = fork ();
+            if (r == 0)
             {
-                execvp (ptr->cmd, ptr->argc > 0 ? 
-                                            ptr->argv : 
-                                            (char *[]){"",NULL});
-                perror ("execvp");
-                r = -1;
+                if (ptr->in != 0)
+                {
+                    close (0);
+                    dup (ptr->in);
+                }
+                if (ptr->out != 1)
+                {
+                    close (1);
+                    dup (ptr->out);
+                }
+                /* Here we add the argv[0] which is the program name */
+                char ** argv;
+                if (ptr->argc > 0)
+                {
+                    int i;
+                    argv = xcalloc (ptr->argc + 2, sizeof (char *));
+                    argv[0] = ptr->cmd;
+                    for (i = 1; i - 1 < ptr->argc; i++)
+                        argv[i] = ptr->argv[i-1];
+                    argv[i] = NULL;
+                }
+                else
+                    argv = (char *[]){ptr->cmd, NULL};
+                execvp (ptr->cmd, argv);
+                err (1, "%s", ptr->cmd);
             }
         }
     }
@@ -691,16 +715,16 @@ run_line (input_line *ptr)
             case END:
             {
                 pid_t p = run_command (cmd);
-                if (p != -1)
+                if (p != -1 || !cmd->builtin)
                     waitpid (p, NULL, cmd->flag == BG ? WNOHANG : 0);
                 break;
             }
             case PIPE:
             {
-                int nb = 0, i, fd[2];
+                int nb = 1, i, fd[2];
                 pid_t *p;
-                command *exec = cmd->next;
-                while (exec != NULL && exec->flag == OR)
+                command *exec = cmd, *save = cmd;
+                while (exec != NULL && exec->flag == PIPE)
                 {
                     nb++;
                     exec = exec->next;
@@ -715,15 +739,18 @@ run_line (input_line *ptr)
                     p[i] = run_command (exec);
                     if (exec->out != 1)
                         close (exec->out);
+                    save = exec;
                     exec = exec->next;
-                    exec->in = fd[0];
+                    if (exec != NULL)
+                        exec->in = fd[0];
                 }
                 for (i = 0; i < nb; i++)
                 {
                     if (p[i] != -1)
                         waitpid (p[i], NULL, 0);
                 }
-                cmd = exec->next;
+                xfree (p);
+                cmd = save;
                 break;
             }
             }

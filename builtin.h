@@ -34,7 +34,7 @@
 
 typedef struct _builtin builtin;
 
-typedef void (* cmd_builtin) (int argc, char **argv);
+typedef int (* cmd_builtin) (int argc, char **argv, int in, int out);
 
 struct _builtin {
     /* key */
@@ -43,10 +43,10 @@ struct _builtin {
     cmd_builtin func;
 };
 
-void sd_cd (int argc, char **argv);
+int sd_cd (int argc, char **argv, int in, int out);
 
-void sd_pwd (int argc, char **argv);
+int sd_pwd (int argc, char **argv, int in, int out);
 
-void sd_echo (int argc, char **argv);
+int sd_echo (int argc, char **argv, int in, int out);
 
 #endif
