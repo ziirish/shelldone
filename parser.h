@@ -29,33 +29,42 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
-#ifndef _COMMAND_H_
-#define _COMMAND_H_
+#ifndef _PARSER_H_
+#define _PARSER_H_
 
 #include "structs.h"
 
-/* Allocate memory for a command structure */
-command *new_cmd (void);
-
-/** 
- * Free memory used by the given command
- * @param ptr Command that must be free'ed
+/**
+ * Free memory used by the given line
+ * @param ptr Line that must be free'ed
  */
-void free_cmd (command *ptr);
+void free_line (input_line *ptr);
 
 /**
- * Parse the given command to separate the builtins from the rest and replace
- * the wildcards/variables/etc in order to execute in a subprocess for the
- * non-builtin commands.
- * @param ptr The command to parse
+ * A debug function used to display the content of a command
+ * @param ptr Command to display
  */
-void parse_command (command *ptr);
+void dump_cmd (command *ptr);
 
 /**
- * Execute the given input_line evaluating the command returns to set the
- * apropriate viariables
- * @param ptr Input-line to run
+ * A debug function used to display the content of a command-line
+ * @param ptr Command-line to display
  */
-void run_line (input_line *ptr);
+void dump_line (input_line *ptr);
+
+/**
+ * Parse the given string into an input_line structure
+ * @param line Input string to parse
+ * @return An input_line structure corresponding to the given string, or NULL
+ */
+input_line *parse_line (const char *line);
+
+/**
+ * Read a command-line on the standard-input using the given prompt
+ * A line is terminated by the '\n' character unless the lines ends with an \
+ * @param prompt Prompt to display
+ * @return An allocated string corresponding to the user's input, or NULL
+ */
+char *read_line (const char *prompt);
 
 #endif

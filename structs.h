@@ -29,33 +29,67 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
-#ifndef _COMMAND_H_
-#define _COMMAND_H_
+#ifndef _STRUCTS_H_
+#define _STRUCTS_H_
 
-#include "structs.h"
-
-/* Allocate memory for a command structure */
-command *new_cmd (void);
+/* Structure that represents a command */
+typedef struct _command_line command;
 
 /** 
- * Free memory used by the given command
- * @param ptr Command that must be free'ed
+ * Structure that represents a command-line
+ * A command-line can contains multiple command linked by operators or not
+ * Thus the data-structure used for the command-line is a double liked-list of 
+ * commands (cf. previous struct)
  */
-void free_cmd (command *ptr);
+typedef struct _line input_line;
 
-/**
- * Parse the given command to separate the builtins from the rest and replace
- * the wildcards/variables/etc in order to execute in a subprocess for the
- * non-builtin commands.
- * @param ptr The command to parse
- */
-void parse_command (command *ptr);
+/* Different flags that describe in which context the command should be run */
+typedef enum {
+    /* the command is followed by a '|' */
+    PIPE = 1,
+    /* the command is followed by a '&' */
+    BG,
+    /* the command is followed by a '||' */
+    OR,
+    /* the command is followed by a '&&' */
+    AND,
+    /* the command is followed by ';' or nothing (default flag) */
+    END
+} CmdFlag;
 
-/**
- * Execute the given input_line evaluating the command returns to set the
- * apropriate viariables
- * @param ptr Input-line to run
- */
-void run_line (input_line *ptr);
+struct _command_line {
+    /* command */
+    char *cmd;
+    /* arguments */
+    char **argv;
+    /* nb arguments */
+    int argc;
+    /* cmd flag */
+    CmdFlag flag;
+    /* stdout */
+    int out;
+    /* stdin */
+    int in;
+    /* stderr */
+    int err;
+    /* file descriptor flag */
+    int oflag;
+    /* is it a builtin command */
+    unsigned int builtin;
+    /* next cmd */
+    command *next;
+    /* prev cmd */
+    command *prev;
+};
+
+/* a double linked list */
+struct _line {
+    /* head command */
+    command *head;
+    /* tail command */
+    command *tail;
+    /* nb commands */
+    int nb;
+};
 
 #endif

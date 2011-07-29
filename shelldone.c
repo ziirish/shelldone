@@ -42,6 +42,7 @@
 
 
 #include "xutils.h"
+#include "parser.h"
 #include "command.h"
 
 static char *prompt = NULL;
