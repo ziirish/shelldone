@@ -37,31 +37,48 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <errno.h>
 
 #include "xutils.h"
 #include "builtin.h"
 
 int 
-sd_pwd (int argc, char **argv, int in, int out)
+sd_pwd (int argc, char **argv, int in, int out, int err)
 {
-    FILE *fd;
+    FILE *fdout, *fderr;
+    char *pwd;
+    
+    if (out != 1)
+        fdout = fdopen (out, "a");
+    else
+        fdout = stdout;
+    if (err == out)
+        fderr = fdout;
+    else if (err != 2)
+        fderr = fdopen (err, "a");
+    else
+        fderr = stderr;
+
     if (argc > 0)
     {
-        fprintf (stderr, "ERROR: too many arguments\n");
-        fprintf (stderr, "usage: pwd\n");
+        fprintf (fderr, "ERROR: too many arguments\n");
+        fprintf (fderr, "usage: pwd\n");
+        if (out != 1)
+            fclose (fdout);
+        if (err != 2 && err != out)
+            fclose (fderr);
 /*        _exit (1); */
         return 1;
     }
 
-    if (out != 1)
-        fd = fdopen (out, "a");
-    else
-        fd = stdout;
-
-    fprintf (fd, "%s\n", getenv ("PWD"));
+    pwd = getcwd (NULL, 0);
+    fprintf (fdout, "%s\n", /*getenv ("PWD")*/pwd);
+    xfree (pwd);
 
     if (out != 1)
-        fclose (fd);
+        fclose (fdout);
+    if (err != 2 && err != out)
+        fclose (fderr);
 
     (void) argv;
     (void) in;
@@ -71,7 +88,7 @@ sd_pwd (int argc, char **argv, int in, int out)
 }
 
 int 
-sd_cd (int argc, char **argv, int in, int out)
+sd_cd (int argc, char **argv, int in, int out, int err)
 {
     char *target;
     if (argc > 1)
@@ -186,18 +203,20 @@ sd_cd (int argc, char **argv, int in, int out)
     
     (void) in;
     (void) out;
+    (void) err;
 
     return 0;
 }
 
 int
-sd_echo (int argc, char **argv, int in, int out)
+sd_echo (int argc, char **argv, int in, int out, int err)
 {
     int nflag;
     int i;
 
     (void) in;
     (void) out;
+    (void) err;
 
     if (argc < 1)
         return 0;
@@ -225,4 +244,39 @@ sd_echo (int argc, char **argv, int in, int out)
 
 /*    _exit (0); */
     return 0;
+}
+
+int
+sd_exec (int argc, char **argv, int in, int out, int err)
+{
+    char **my_argv;
+    int i;
+    if (argc == 0)
+        return 0;
+
+    if (in != 0)
+    {
+        close (0);
+        dup (in);
+    }
+    if (out != 1)
+    {
+        close (1);
+        dup (out);
+    }
+    if (err != 2 && err != out)
+    {
+        close (2);
+        dup (err);
+    }
+
+    my_argv = xcalloc (argc + 1, sizeof (char *));
+    for (i = 0; i < argc; i++)
+        my_argv[i] = argv[i];
+    my_argv[i] = NULL;
+
+    execvp (my_argv[0], my_argv);
+    fprintf (stderr, "exec: %s\n", strerror (errno));
+
+    return 1;
 }

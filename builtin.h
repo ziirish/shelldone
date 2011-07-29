@@ -32,9 +32,11 @@
 #ifndef _BUILTIN_H_
 #define _BUILTIN_H_
 
+/* Structure representing a builtin command */
 typedef struct _builtin builtin;
 
-typedef int (* cmd_builtin) (int argc, char **argv, int in, int out);
+/* Generic signature for the builtin commands */
+typedef int (* cmd_builtin) (int argc, char **argv, int in, int out, int err);
 
 struct _builtin {
     /* key */
@@ -43,10 +45,49 @@ struct _builtin {
     cmd_builtin func;
 };
 
-int sd_cd (int argc, char **argv, int in, int out);
+/**
+ * Builtin command to move into another directory
+ * @param argc Number of arguments passed to the command
+ * @param argv Array of strings containing the arguments passed to the command
+ * @param in Descriptor of the standard input 
+ * @param out Descriptor of the standard output
+ * @param err Descriptor of the standard error output
+ * @return 0 if the command succeed, non-zero if not
+ */
+int sd_cd (int argc, char **argv, int in, int out, int err);
 
-int sd_pwd (int argc, char **argv, int in, int out);
+/**
+ * Builtin command to get the current directory
+ * @param argc Number of arguments passed to the command
+ * @param argv Array of strings containing the arguments passed to the command
+ * @param in Descriptor of the standard input 
+ * @param out Descriptor of the standard output
+ * @param err Descriptor of the standard error output
+ * @return 0 if the command succeed, non-zero if not
+ */
+int sd_pwd (int argc, char **argv, int in, int out, int err);
 
-int sd_echo (int argc, char **argv, int in, int out);
+/**
+ * Builtin command to display the given arguments
+ * @param argc Number of arguments passed to the command
+ * @param argv Array of strings containing the arguments passed to the command
+ * @param in Descriptor of the standard input 
+ * @param out Descriptor of the standard output
+ * @param err Descriptor of the standard error output
+ * @return 0 if the command succeed, non-zero if not
+ */
+int sd_echo (int argc, char **argv, int in, int out, int err);
+
+/**
+ * Builtin command to execute in the current context (ie. not in a subprocess)
+ * the given arguments
+ * @param argc Number of arguments passed to the command
+ * @param argv Array of strings containing the arguments passed to the command
+ * @param in Descriptor of the standard input 
+ * @param out Descriptor of the standard output
+ * @param err Descriptor of the standard error output
+ * @return 0 if the command succeed, non-zero if not
+ */
+int sd_exec (int argc, char **argv, int in, int out, int err);
 
 #endif

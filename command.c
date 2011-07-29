@@ -46,6 +46,7 @@
 
 static builtin calls[] = {{"cd", (cmd_builtin) sd_cd},
                           {"pwd", (cmd_builtin) sd_pwd},
+                          {"exec", (cmd_builtin) sd_exec},
 /*                          {"echo", (cmd_builtin) sd_echo}, */
                           {NULL, NULL}};
 
@@ -439,7 +440,8 @@ char *
 read_line (const char *prompt)
 {
     char *ret = xmalloc (BUF * sizeof (char));
-    int cpt = 0, ind = 1, nb_lines = 0, antislashes = 0, read_tmp = 0;
+    int cpt = 0, ind = 1, nb_lines = 0, antislashes = 0, read_tmp = 0,
+        squote = 0, dquote = 0;
     char c, tmp;
     if (ret == NULL)
         return NULL;
@@ -450,7 +452,7 @@ read_line (const char *prompt)
     }
 /*    c = getchar (); */
     read (0, &c, 1);
-    while (c != '\n' || nb_lines != antislashes)
+    while (c != '\n' || (c == '\n' && (squote || dquote)) || nb_lines != antislashes)
     {
         if (c == '\t')
         {
@@ -467,6 +469,15 @@ read_line (const char *prompt)
             fprintf (stdout, "%c", c);
             fflush (stdout);
         }
+        else if (c == '\n' && (squote || dquote))
+        {
+            fprintf (stdout, "\n> ");
+            fflush (stdout);
+        }
+        if (c == '\'' && !dquote)
+            squote = !squote;
+        if (c == '"' && !squote)
+            dquote = !dquote;
         if (c == '\\')
         {
 /*            tmp = getchar (); */
@@ -481,7 +492,7 @@ read_line (const char *prompt)
             }
             read_tmp = 1;
         }
-        if (c == '\n')
+        if (c == '\n' && !(squote || dquote))
         {
 /*            c = getchar (); */
             read (0, &c, 1);
@@ -660,7 +671,7 @@ run_command (command *ptr)
                 {
 /*                        argv[i] = xstrdup (ptr->argv[i]); */;
                 }
-            r = call (ptr->argc, ptr->argv, ptr->in, ptr->out);
+            r = call (ptr->argc, ptr->argv, ptr->in, ptr->out, ptr->err);
             ptr->builtin = TRUE;
         }
         else
