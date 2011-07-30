@@ -41,11 +41,13 @@
 #include "parser.h"
 #include "xutils.h"
 
-static builtin calls[] = {{"cd", (cmd_builtin) sd_cd},
-                          {"pwd", (cmd_builtin) sd_pwd},
-                          {"exec", (cmd_builtin) sd_exec},
-/*                          {"echo", (cmd_builtin) sd_echo}, */
-                          {NULL, NULL}};
+static const builtin calls[] = {{"cd", (cmd_builtin) sd_cd},
+                                {"pwd", (cmd_builtin) sd_pwd},
+                                {"exec", (cmd_builtin) sd_exec},
+/*                              {"echo", (cmd_builtin) sd_echo}, */
+                                {NULL, NULL}};
+
+static int ret_code;
 
 command *
 new_cmd (void)
@@ -239,7 +241,16 @@ run_command (command *ptr)
                     argv = xcalloc (ptr->argc + 2, sizeof (char *));
                     argv[0] = ptr->cmd;
                     for (i = 1; i - 1 < ptr->argc; i++)
-                        argv[i] = ptr->argv[i-1];
+                    {
+                        if (xstrcmp ("$?", ptr->argv[i-1]) == 0)
+                        {
+                            char buf[128];
+                            snprintf (buf, 128, "%d", ret_code);
+                            argv[i] = buf;
+                        }
+                        else
+                            argv[i] = ptr->argv[i-1];
+                    }
                     argv[i] = NULL;
                 }
                 else
@@ -255,6 +266,8 @@ run_command (command *ptr)
 void
 run_line (input_line *ptr)
 {
+    CmdFlag flag;
+    int ret;
     if (ptr != NULL)
     {
         command *cmd = ptr->head;
@@ -262,14 +275,74 @@ run_line (input_line *ptr)
         {
             switch (cmd->flag)
             {
+            /* 
+             * launch a command in background is pretty much the same as
+             * launch it in forground exept in one case we wait until it's
+             * done and in the other case we don't
+             */
             case BG:
-            case OR:
-            case AND:
             case END:
             {
                 pid_t p = run_command (cmd);
+                /* p should never be equal to -1 */
                 if (p != -1 || !cmd->builtin)
-                    waitpid (p, NULL, cmd->flag == BG ? WNOHANG : 0);
+                {
+                    waitpid (p, &ret, cmd->flag == BG ? WNOHANG : 0);
+                    ret_code = WEXITSTATUS(ret);
+                }
+                else if (p != -1)
+                    ret_code = (int) p;
+                else
+                    ret_code = 254;
+
+                break;
+            }
+            case OR:
+            case AND:
+            {
+                int nb = 1, i;
+                pid_t p;
+                command *exec = cmd, *save;
+                flag = cmd->flag;
+                while (exec != NULL && exec->flag == flag)
+                {
+                    nb++;
+                    save = exec;
+                    exec = exec->next;
+                }
+                if (exec != NULL)
+                    save = exec;
+                exec = cmd;
+                p = run_command (exec);
+                if (p != -1 || !exec->builtin)
+                {
+                    waitpid (p, &ret, 0);
+                    ret_code = WEXITSTATUS(ret);
+                }
+                else if (p != -1)
+                    ret_code = (int) p;
+                else
+                    ret_code = 254;
+                i = 1;
+                exec = exec->next;
+                while (i < nb && ((flag == AND) ? 
+                                        (ret_code == 0) : 
+                                        (ret_code != 0)))
+                {
+                    p = run_command (exec);
+                    if (p != -1 || !exec->builtin)
+                    {
+                        waitpid (p, &ret, 0);
+                        ret_code = WEXITSTATUS(ret);
+                    }
+                    else if (p != -1)
+                        ret_code = (int) p;
+                    else
+                        ret_code = 254;
+                    exec = exec->next;
+                    i++;
+                }
+                cmd = save;
                 break;
             }
             case PIPE:
