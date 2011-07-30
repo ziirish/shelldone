@@ -216,6 +216,7 @@ run_command (command *ptr)
 /*                        argv[i] = xstrdup (ptr->argv[i]); */;
                 }
             r = call (ptr->argc, ptr->argv, ptr->in, ptr->out, ptr->err);
+            ret_code = r;
             ptr->builtin = TRUE;
         }
         else
@@ -285,14 +286,12 @@ run_line (input_line *ptr)
             {
                 pid_t p = run_command (cmd);
                 /* p should never be equal to -1 */
-                if (p != -1 || !cmd->builtin)
+                if (p != -1 && !cmd->builtin)
                 {
                     waitpid (p, &ret, cmd->flag == BG ? WNOHANG : 0);
                     ret_code = WEXITSTATUS(ret);
                 }
-                else if (p != -1)
-                    ret_code = (int) p;
-                else
+                else if (p == -1)
                     ret_code = 254;
 
                 break;
@@ -314,14 +313,12 @@ run_line (input_line *ptr)
                     save = exec;
                 exec = cmd;
                 p = run_command (exec);
-                if (p != -1 || !exec->builtin)
+                if (p != -1 && !exec->builtin)
                 {
                     waitpid (p, &ret, 0);
                     ret_code = WEXITSTATUS(ret);
                 }
-                else if (p != -1)
-                    ret_code = (int) p;
-                else
+                else if (p == -1)
                     ret_code = 254;
                 i = 1;
                 exec = exec->next;
@@ -330,14 +327,12 @@ run_line (input_line *ptr)
                                         (ret_code != 0)))
                 {
                     p = run_command (exec);
-                    if (p != -1 || !exec->builtin)
+                    if (p != -1 && !exec->builtin)
                     {
                         waitpid (p, &ret, 0);
                         ret_code = WEXITSTATUS(ret);
                     }
-                    else if (p != -1)
-                        ret_code = (int) p;
-                    else
+                    else if (p == -1)
                         ret_code = 254;
                     exec = exec->next;
                     i++;
@@ -372,8 +367,13 @@ run_line (input_line *ptr)
                 }
                 for (i = 0; i < nb; i++)
                 {
-                    if (p[i] != -1)
-                        waitpid (p[i], NULL, 0);
+                    if (p[i] != -1 && !exec->builtin)
+                    {
+                        waitpid (p[i], &ret, 0);
+                        ret_code = WEXITSTATUS(ret);
+                    }
+                    else if (p[i] == -1)
+                        ret_code = 254;
                 }
                 xfree (p);
                 cmd = save;
