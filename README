@@ -16,46 +16,61 @@ $ ./shelldone
 Example
 -------
 
-Actually, it does nothing yet, but I really like the following :)
+It is now possible to run commands using the following operators: ';', '|', '&',
+'&&', and '||'.
+It still doesn't need any external libraries.
+Here is a little demo:
 
+ziirish@carbon:~/workspace/shelldone$ make
+gcc -std=c99 -Wall -Werror -W -fno-builtin -g   -c -o shelldone.o shelldone.c
+gcc -std=c99 -Wall -Werror -W -fno-builtin -g   -c -o xutils.o xutils.c
+gcc -std=c99 -Wall -Werror -W -fno-builtin -g   -c -o command.o command.c
+gcc -std=c99 -Wall -Werror -W -fno-builtin -g   -c -o builtin.o builtin.c
+gcc -std=c99 -Wall -Werror -W -fno-builtin -g   -c -o parser.o parser.c
+gcc  shelldone.o xutils.o command.o builtin.o parser.o -o shelldone
 ziirish@carbon:~/workspace/shelldone$ valgrind ./shelldone
-==19875== Memcheck, a memory error detector
-==19875== Copyright (C) 2002-2010, and GNU GPL'd, by Julian Seward et al.
-==19875== Using Valgrind-3.6.0.SVN-Debian and LibVEX; rerun with -h for
+==18100== Memcheck, a memory error detector
+==18100== Copyright (C) 2002-2010, and GNU GPL'd, by Julian Seward et al.
+==18100== Using Valgrind-3.6.0.SVN-Debian and LibVEX; rerun with -h for
 copyright info
-==19875== Command: ./shelldone
-==19875==
-ziirish@carbon:~/workspace/shelldone$ fdsfds fdsfd gsgds gdsgds jkjsdg hjgsdh
-gdshgds dsghds dgsgsd gdsghqf hueyuig dggds gdsuoigsd giosdg io | a | t
-nb commands: 3
-cmd: fdsfds
-argc: 14
-argv[0]: fdsfd
-argv[1]: gsgds
-argv[2]: gdsgds
-argv[3]: jkjsdg
-argv[4]: hjgsdh
-argv[5]: gdshgds
-argv[6]: dsghds
-argv[7]: dgsgsd
-argv[8]: gdsghqf
-argv[9]: hueyuig
-argv[10]: dggds
-argv[11]: gdsuoigsd
-argv[12]: giosdg
-argv[13]: io
-cmd: a
-argc: 0
-cmd: t
-argc: 0
+==18100== Command: ./shelldone
+==18100== 
+ziirish@carbon:~/workspace/shelldone$ echo "this
+> is a command"
+this
+is a command
+ziirish@carbon:~/workspace/shelldone$ echo \
+> this is another one
+this is another one
+ziirish@carbon:~/workspace/shelldone$ echo you can also do this | sed "s/this/that/"
+you can also do that
+ziirish@carbon:~/workspace/shelldone$ cat toto || echo FAILED
+cat: toto: No such file or directory
+FAILED
+ziirish@carbon:~/workspace/shelldone$ ls && echo SUCCEED
+builtin.c  builtin.o  command.h  LICENSE   parser.c  parser.o  shelldone
+shelldone.o  xutils.c  xutils.o
+builtin.h  command.c  command.o  Makefile  parser.h  README    shelldone.c
+structs.h    xutils.h
+SUCCEED
+ziirish@carbon:~/workspace/shelldone$ echo $?
+0
+ziirish@carbon:~/workspace/shelldone$ cd ..
+ziirish@carbon:~/workspace$ pwd
+/home/ziirish/workspace
+ziirish@carbon:~/workspace$ cd -
+ziirish@carbon:~/workspace/shelldone$ cd toto
+cd: No such file or directory
+ziirish@carbon:~/workspace/shelldone$ echo $?
+2
 ziirish@carbon:~/workspace/shelldone$ quit
-==19875==
-==19875== HEAP SUMMARY:
-==19875==     in use at exit: 0 bytes in 0 blocks
-==19875==   total heap usage: 53 allocs, 53 frees, 3,763 bytes allocated
-==19875==
-==19875== All heap blocks were freed -- no leaks are possible
-==19875==
-==19875== For counts of detected and suppressed errors, rerun with: -v
-==19875== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 4 from 4)
+==18100== 
+==18100== HEAP SUMMARY:
+==18100==     in use at exit: 0 bytes in 0 blocks
+==18100==   total heap usage: 150 allocs, 150 frees, 14,227 bytes allocated
+==18100== 
+==18100== All heap blocks were freed -- no leaks are possible
+==18100== 
+==18100== For counts of detected and suppressed errors, rerun with: -v
+==18100== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 4 from 4)
 
