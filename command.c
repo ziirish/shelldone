@@ -344,6 +344,7 @@ run_line (input_line *ptr)
             {
                 int nb = 1, i, fd[2];
                 pid_t *p;
+                unsigned int *builtins;
                 command *exec = cmd, *save = cmd;
                 while (exec != NULL && exec->flag == PIPE)
                 {
@@ -351,6 +352,7 @@ run_line (input_line *ptr)
                     exec = exec->next;
                 }
                 p = xmalloc (nb * sizeof (pid_t));
+                builtins = xmalloc (nb * sizeof (unsigned int));
                 exec = cmd;
                 for (i = 0; i < nb; i++)
                 {
@@ -358,6 +360,7 @@ run_line (input_line *ptr)
                     if (i != nb - 1)
                         exec->out = fd[1];
                     p[i] = run_command (exec);
+                    builtins[i] = exec->builtin;
                     if (exec->out != 1)
                         close (exec->out);
                     save = exec;
@@ -367,7 +370,7 @@ run_line (input_line *ptr)
                 }
                 for (i = 0; i < nb; i++)
                 {
-                    if (p[i] != -1 && !exec->builtin)
+                    if (p[i] != -1 && !builtins[i])
                     {
                         waitpid (p[i], &ret, 0);
                         ret_code = WEXITSTATUS(ret);
@@ -376,6 +379,7 @@ run_line (input_line *ptr)
                         ret_code = 254;
                 }
                 xfree (p);
+                xfree (builtins);
                 cmd = save;
                 break;
             }
