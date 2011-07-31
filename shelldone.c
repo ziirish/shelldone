@@ -99,11 +99,7 @@ get_prompt (void)
         return xstrdup (prompt);
     }
 
-    if (s_pwd < s_home)
-    {
-        pwd = strndup (full_pwd, s_pwd);
-    } 
-    else if (strncmp (full_pwd, home, s_home) == 0)
+    if (strncmp (full_pwd, home, s_home) == 0)
     {
         size_t size = s_pwd - s_home;
         int cpt = 1;
@@ -116,6 +112,8 @@ get_prompt (void)
         }
         pwd[cpt-1] = '\0';
     }
+    else
+        pwd = xstrdup (full_pwd);
 
     xfree (prompt);
     full = xstrlen (user) + xstrlen (host) + xstrlen (pwd) + 4;
