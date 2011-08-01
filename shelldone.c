@@ -49,9 +49,9 @@ static char *prompt = NULL;
 static char *host = NULL;
 static const char *fpwd = NULL;
 
-void init_ioctl (void);
+static void init_ioctl (void);
 
-void
+static void
 shelldone_init (void)
 {
     host = malloc (30);
@@ -61,14 +61,14 @@ shelldone_init (void)
     init_ioctl ();
 }
 
-void
+static void
 shelldone_clean (void)
 {
     xfree (host);
     xfree (prompt);
 }
 
-void
+static void
 init_ioctl (void)
 {
     struct termios   term;
@@ -82,7 +82,7 @@ init_ioctl (void)
         printf("ioctl S prob\n");
 }
 
-char *
+static char *
 get_prompt (void)
 {
     const char *user = getenv ("USER");
@@ -96,7 +96,7 @@ get_prompt (void)
 
     if (fpwd != NULL && xstrcmp (full_pwd, fpwd) == 0)
     {
-        return xstrdup (prompt);
+        return prompt;
     }
 
     if (strncmp (full_pwd, home, s_home) == 0)
@@ -122,24 +122,23 @@ get_prompt (void)
     fpwd = full_pwd;
 
     xfree (pwd);
-    return xstrdup (prompt);
+    return prompt;
 }
 
 int
 main (int argc, char **argv)
 {
-    char *li = NULL;
-    char *pt;
-
     shelldone_init ();
 
     while (1)
     {
-        pt = get_prompt ();
-        li = read_line (pt);
-        xfree (pt);
+        char *pt = get_prompt ();
+        char *li = read_line (pt);
         if (xstrcmp ("quit", li) == 0)
+        {
+            xfree (li);
             break;
+        }
         input_line *l = parse_line (li);
 /*        dump_line (l); */
         run_line (l);
@@ -147,9 +146,6 @@ main (int argc, char **argv)
         xfree (li);
     }
 
-/*    fprintf (stdout, "entered: %s\n", line); */
-
-    xfree (li);
     shelldone_clean ();
 
 /* avoid the 'unused variables' warning */
