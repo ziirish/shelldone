@@ -33,6 +33,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <string.h>
 
 #include "command.h"
 #include "parser.h"
@@ -41,11 +42,12 @@
 static char *
 completion (char *buf, int ind)
 {
-    char *tmp = xmalloc (ind);
+    char *tmp = xmalloc (ind + 1);
     char **split;
     size_t s_split;
     int i;
-    for (i = 0; i < ind - 1; i++, tmp[i] = buf[i]);
+    for (i = 0; i < ind; i++)
+        tmp[i] = buf[i];
     tmp[i] = '\0';
     split = xstrsplit (tmp, " ", &s_split);
 
@@ -391,13 +393,46 @@ parse_line (const char *l)
     return ret;
 }
 
+static char
+get_char_full (const char input[5], const char *prompt, const char *ret, int cpt)
+{
+    size_t len = xstrlen (input);
+    int i;
+    if (len == 1)
+    {
+        if (input[0] == 127)
+        {
+            if (cpt > 0)
+            {
+                fprintf (stdout, "\b \b");
+                fflush (stdout);
+            }
+            return -2;
+        }
+        return input[0];
+    }
+/*    fprintf (stdout, "size: %d, in: %s\n", len, input);*/
+    fprintf (stdout, "\nsize: %d, in: ", len);
+    for (i = 0; i < (int) len; i++)
+    {
+        fprintf (stdout, "%c", input[i]);
+    }
+    fprintf (stdout, "\n%s", prompt);
+    for (i = 0; i < cpt; i++)
+        fprintf (stdout, "%c", ret[i]);
+    fflush (stdout);
+    return -1;
+}
+
+#define get_char(in) get_char_full (in, prompt, ret, cpt)
+
 char *
 read_line (const char *prompt)
 {
     char *ret = xmalloc (BUF * sizeof (char));
     int cpt = 0, ind = 1, nb_lines = 0, antislashes = 0, read_tmp = 0,
         squote = 0, dquote = 0;
-    char c, tmp;
+    char in[5], tmp[5], c = -1;
     if (ret == NULL)
         return NULL;
     if (prompt != NULL && xstrlen (prompt) > 0)
@@ -406,7 +441,16 @@ read_line (const char *prompt)
         fflush (stdout);
     }
 /*    c = getchar (); */
-    read (0, &c, 1);
+    while (c == -1 || c == -2)
+    {
+        if (c == -2)
+        {
+            cpt = xmax (cpt - 1, 0);
+        }
+        memset (in, 0, 5);
+        read (0, &in, 5);
+        c = get_char (in);
+    }
     while (c != '\n' || (c == '\n' && (squote || dquote)) || nb_lines != antislashes)
     {
         if (c == '\t')
@@ -416,7 +460,17 @@ read_line (const char *prompt)
             fflush (stdout);
             */
             completion (ret, cpt);
-            read (0, &c, 1);
+read1:
+            memset (in, 0, 5);
+            read (0, &in, 5);
+            c = get_char (in);
+            if (c == -1)
+                goto read1;
+            if (c == -2)
+            {
+                cpt = xmax (cpt - 1, 0);
+                goto read1;
+            }
             continue;
         }
         else if (c != '\n')
@@ -436,10 +490,19 @@ read_line (const char *prompt)
         if (c == '\\')
         {
 /*            tmp = getchar (); */
-            read (0, &tmp, 1);
-            if (tmp == '\n')
+read2:
+            memset (tmp, 0, 5);
+            read (0, &tmp, 5);
+            if (get_char (tmp) == -1)
+                goto read2;
+            if (get_char (tmp) == -2)
             {
-                c = tmp;
+                cpt = xmax (cpt - 1, 0);
+                goto read2;
+            }
+            if (get_char (tmp) == '\n')
+            {
+                c = get_char (tmp);
                 antislashes++;
                 fprintf (stdout, "\n> ");
                 fflush (stdout);
@@ -450,7 +513,17 @@ read_line (const char *prompt)
         if (c == '\n' && !(squote || dquote))
         {
 /*            c = getchar (); */
-            read (0, &c, 1);
+read3:
+            memset (in, 0, 5);
+            read (0, &in, 5);
+            c = get_char (in);
+            if (c == -1)
+                goto read3;
+            if (c == -2)
+            {
+                cpt = xmax (cpt - 1, 0);
+                goto read3;
+            }
             nb_lines++;
             continue;
         }
@@ -470,14 +543,24 @@ replay:
         {
             read_tmp = 0;
             ret[cpt] = c;
-            c = tmp;
+            c = get_char (tmp);
             cpt++;
             goto replay;
         }
         ret[cpt] = c;
         cpt++;
 /*        c = getchar (); */
-        read (0, &c, 1);
+read4:
+        memset (in, 0, 5);
+        read (0, &in, 5);
+        c = get_char (in);
+        if (c == -1)
+            goto read4;
+        if (c == -2)
+        {
+            cpt = xmax (cpt - 1, 0);
+            goto read4;
+        }
     }
     fprintf (stdout, "\n");
     if (cpt >= ind * BUF)
