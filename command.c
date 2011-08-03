@@ -46,10 +46,11 @@
 static const builtin calls[] = {{"cd", (cmd_builtin) sd_cd},
                                 {"pwd", (cmd_builtin) sd_pwd},
                                 {"exec", (cmd_builtin) sd_exec},
+                                {"exit", (cmd_builtin) sd_exit},
 /*                              {"echo", (cmd_builtin) sd_echo}, */
                                 {NULL, NULL}};
 
-static int ret_code;
+int ret_code = 0;
 
 command *
 new_cmd (void)

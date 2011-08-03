@@ -44,6 +44,20 @@
 #include "xutils.h"
 #include "builtin.h"
 
+extern int ret_code;
+
+int
+sd_exit (int argc, char **argv, int in, int out, int err)
+{
+    (void) in;
+    (void) out;
+    (void) err;
+
+    if (argc == 0)
+        exit (ret_code);
+    exit (strtoul (argv[0], NULL, 0));
+}
+
 int 
 sd_pwd (int argc, char **argv, int in, int out, int err)
 {
