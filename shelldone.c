@@ -1,6 +1,8 @@
 /**
  * Shelldone
  *
+ * vim:ts=4:sw=4:expandtab
+ *
  * Copyright (c) 2011, Ziirish <mr.ziirish@gmail.com>
  * All rights reserved.
  * 
@@ -40,7 +42,6 @@
 #include <sys/ioctl.h>
 #include <termios.h>
 
-
 #include "xutils.h"
 #include "parser.h"
 #include "command.h"
@@ -51,6 +52,7 @@ static const char *fpwd = NULL;
 
 static void init_ioctl (void);
 
+/* Initialization function */
 static void
 shelldone_init (void)
 {
@@ -61,6 +63,7 @@ shelldone_init (void)
     init_ioctl ();
 }
 
+/* Cleanup function */
 static void
 shelldone_clean (void)
 {
@@ -68,6 +71,7 @@ shelldone_clean (void)
     xfree (prompt);
 }
 
+/* Input initialization function */
 static void
 init_ioctl (void)
 {
@@ -82,7 +86,13 @@ init_ioctl (void)
         printf("ioctl S prob\n");
 }
 
-static char *
+/**
+ * Gets the prompt in a hard-coded pattern like:
+ * user@hostname:pwd$
+ * We can imagine make it configurable in the future
+ * @return The prompt
+ */
+static const char *
 get_prompt (void)
 {
     const char *user = getenv ("USER");
@@ -117,7 +127,7 @@ get_prompt (void)
 
     xfree (prompt);
     full = xstrlen (user) + xstrlen (host) + xstrlen (pwd) + 4;
-    prompt = malloc (full + 1);
+    prompt = xmalloc (full + 1);
     snprintf (prompt, full + 1, "%s@%s:%s$ ", user, host, pwd);
     fpwd = full_pwd;
 
@@ -132,7 +142,7 @@ main (int argc, char **argv)
 
     while (1)
     {
-        char *pt = get_prompt ();
+        const char *pt = get_prompt ();
         char *li = read_line (pt);
         if (xstrcmp ("quit", li) == 0)
         {
