@@ -1,7 +1,7 @@
 CC=gcc
 CFLAGS=-std=c99 -Wall -Werror -W -fno-builtin -g
 LDFLAGS=
-SOURCES=shelldone.c xutils.c command.c builtin.c parser.c
+SOURCES=$(wildcard *.c)
 OBJECTS=$(SOURCES:.c=.o)
 EXECUTABLE=shelldone
 .PHONY: clean
