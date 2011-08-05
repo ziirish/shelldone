@@ -31,31 +31,152 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
+#ifndef _BSD_SOURCE
+    #define _BSD_SOURCE
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
+#include <dirent.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include "command.h"
 #include "parser.h"
 #include "xutils.h"
 
-static char *
-completion (char *buf, int ind)
+static char **command_list = NULL;
+static int nb_commands = 0;
+
+static int
+cmpsort (const void *p1, const void *p2)
 {
-    char *tmp = xmalloc (ind + 1);
-    char **split;
-    size_t s_split;
-    int i;
+    return xstrcmp(* (char * const *) p1, * (char * const *) p2);
+}
+
+void 
+init_command_list (void)
+{
+    char *path = xstrdup (getenv ("PATH"));
+    size_t size;
+    char **paths = xstrsplit (path, ":", &size);
+    int i, j, k = 0, l, n = 1;
+    char **tmp_command_list = xcalloc (n * 500, sizeof (char *));
+    xfree (path);
+    for (i = 0; i < (int) size; i++)
+    {
+        struct dirent **files;
+        int nbfiles = scandir (paths[i], &files, NULL, alphasort);
+        for (j = 0; j < nbfiles; j++)
+        {
+            if (k >= n * 500)
+            {
+                n++;
+                tmp_command_list = xrealloc (tmp_command_list, 
+                                         n * 500 * sizeof (char *));
+            }
+            if (S_ISREG(DTTOIF(files[j]->d_type)) && 
+                access(files[j]->d_name, X_OK))
+            {
+                tmp_command_list[k] = xstrdup (files[j]->d_name);
+                k++;
+            }
+            xfree (files[j]);
+        }
+        xfree (files);
+    }
+    xfree_list (paths, size);
+    qsort (tmp_command_list, k, sizeof (char *), cmpsort);
+    n = 1;
+    command_list = xcalloc (n * 500, sizeof (char *));
+    for (i = 0, j = 1, l = 0; j < k; i++)
+    {
+        if (i >= n * 500)
+        {
+            n++;
+            command_list = xrealloc (command_list, n * 500 * sizeof (char *));
+        }
+        command_list[i] = xstrdup (tmp_command_list[l]);
+        while (j <= k - 1 && 
+               xstrcmp (command_list[i], tmp_command_list[j]) == 0)
+            j++;
+        l = (j <= k - 1) ? j : k - 1;
+        j++;
+    }
+    nb_commands = i;
+    xfree_list (tmp_command_list, k);
+}
+
+void
+clear_command_list (void)
+{
+    xfree_list (command_list, nb_commands);
+    nb_commands = 0;
+}
+
+static const char *
+completion (const char *prompt, char *buf, int ind)
+{
+    char *tmp = xmalloc (ind + 1), *ret = NULL;
+    char **split, **list;
+    size_t s_split, s_in;
+    int i, j, n = 1;
+    unsigned int found = FALSE;
     for (i = 0; i < ind; i++)
         tmp[i] = buf[i];
     tmp[i] = '\0';
     split = xstrsplit (tmp, " ", &s_split);
+    if (s_split > 1)
+    {
+        xfree_list (split, s_split);
+        xfree (tmp);
+    }
 
+    list = xcalloc (n * 10, sizeof (char *));
+    s_in = xstrlen (split[0]);
+    for (i = 0, j = 0; i < nb_commands; i++)
+    {
+        int ok = strncmp (split[0], command_list[i], s_in);
+        /* 
+         * our list is sorted so once a command dismatch we are sure the rest
+         * won't match
+         */
+        if (found && ok != 0)
+            break;
+        if (ok == 0)
+        {
+            if (j >= n * 10)
+            {
+                n++;
+                list = xrealloc (list, n * 10 * sizeof (char *));
+            }
+            list[j] = command_list[i];
+            j++;
+            found = TRUE;
+        }
+    }
+    if (j == 1)
+    {
+        for (i = 0; i < (int) s_in; i++)
+            fprintf (stdout, "\b");
+        fprintf (stdout, "%s", list[0]);
+        fflush (stdout);
+        ret = list[0];
+    }
+    else if (j > 1)
+    {
+        fprintf (stdout, "\n");
+        for (i = 0; i < j; i++)
+            fprintf (stdout, "%s\t", list[i]);
+        fprintf (stdout, "\n%s%s", prompt, tmp);
+        fflush (stdout);
+    }
+    xfree (list);
     xfree_list (split, s_split);
     xfree (tmp);
-    return NULL;
+    return ret;
 }
 
 void
@@ -396,7 +517,7 @@ parse_line (const char *l)
 }
 
 static char
-get_char_full (const char input[5], const char *prompt, const char *ret, int cpt)
+get_char_full (const char input[5], const char *prompt, const char *ret, int *cpt)
 {
     size_t len = xstrlen (input);
     int i;
@@ -404,12 +525,13 @@ get_char_full (const char input[5], const char *prompt, const char *ret, int cpt
     {
         if (input[0] == 127)
         {
-            if (cpt > 0)
+            if (*cpt > 0)
             {
+                (*cpt)--;
                 fprintf (stdout, "\b \b");
                 fflush (stdout);
             }
-            return -2;
+            return -1;
         }
         return input[0];
     }
@@ -420,13 +542,13 @@ get_char_full (const char input[5], const char *prompt, const char *ret, int cpt
         fprintf (stdout, "%c", input[i]);
     }
     fprintf (stdout, "\n%s", prompt);
-    for (i = 0; i < cpt; i++)
+    for (i = 0; i < *cpt; i++)
         fprintf (stdout, "%c", ret[i]);
     fflush (stdout);
     return -1;
 }
 
-#define get_char(in) get_char_full (in, prompt, ret, cpt)
+#define get_char(in) get_char_full (in, prompt, ret, &cpt)
 
 char *
 read_line (const char *prompt)
@@ -442,13 +564,8 @@ read_line (const char *prompt)
         fprintf (stdout, "%s", prompt);
         fflush (stdout);
     }
-/*    c = getchar (); */
-    while (c == -1 || c == -2)
+    while (c == -1)
     {
-        if (c == -2)
-        {
-            cpt = xmax (cpt - 1, 0);
-        }
         memset (in, 0, 5);
         read (0, &in, 5);
         c = get_char (in);
@@ -461,17 +578,27 @@ read_line (const char *prompt)
             fprintf (stdout, "[TAB]");
             fflush (stdout);
             */
-            completion (ret, cpt);
-read1:
-            memset (in, 0, 5);
-            read (0, &in, 5);
-            c = get_char (in);
-            if (c == -1)
-                goto read1;
-            if (c == -2)
+            const char *comp = completion (prompt, ret, cpt);
+            if (comp != NULL)
             {
-                cpt = xmax (cpt - 1, 0);
-                goto read1;
+                size_t s_comp = xstrlen (comp);
+                int iz;
+                for (iz = cpt; iz < (int) s_comp; iz++, cpt++)
+                {
+                    if (cpt >= ind * BUF)
+                    {
+                        ind++;
+                        ret = xrealloc (ret, ind * BUF * sizeof (char));
+                    }
+                    ret[cpt] = comp[iz];
+                }
+            }
+            c = -1;
+            while (c == -1)
+            {
+                memset (in, 0, 5);
+                read (0, &in, 5);
+                c = get_char (in);
             }
             continue;
         }
@@ -491,16 +618,12 @@ read1:
             dquote = !dquote;
         if (c == '\\')
         {
-/*            tmp = getchar (); */
-read2:
-            memset (tmp, 0, 5);
-            read (0, &tmp, 5);
-            if (get_char (tmp) == -1)
-                goto read2;
-            if (get_char (tmp) == -2)
+            char ctmp = -1;
+            while (ctmp == -1)
             {
-                cpt = xmax (cpt - 1, 0);
-                goto read2;
+                memset (tmp, 0, 5);
+                read (0, &tmp, 5);
+                ctmp = get_char (tmp);
             }
             if (get_char (tmp) == '\n')
             {
@@ -514,17 +637,12 @@ read2:
         }
         if (c == '\n' && !(squote || dquote))
         {
-/*            c = getchar (); */
-read3:
-            memset (in, 0, 5);
-            read (0, &in, 5);
-            c = get_char (in);
-            if (c == -1)
-                goto read3;
-            if (c == -2)
+            c = -1;
+            while (c == -1)
             {
-                cpt = xmax (cpt - 1, 0);
-                goto read3;
+                memset (in, 0, 5);
+                read (0, &in, 5);
+                c = get_char (in);
             }
             nb_lines++;
             continue;
@@ -552,16 +670,12 @@ replay:
         ret[cpt] = c;
         cpt++;
 /*        c = getchar (); */
-read4:
-        memset (in, 0, 5);
-        read (0, &in, 5);
-        c = get_char (in);
-        if (c == -1)
-            goto read4;
-        if (c == -2)
+        c = -1;
+        while (c == -1)
         {
-            cpt = xmax (cpt - 1, 0);
-            goto read4;
+            memset (in, 0, 5);
+            read (0, &in, 5);
+            c = get_char (in);
         }
     }
     fprintf (stdout, "\n");
