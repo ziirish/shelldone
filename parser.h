@@ -69,4 +69,14 @@ input_line *parse_line (const char *line);
  */
 char *read_line (const char *prompt);
 
+/**
+ * Built a list of available commands
+ */
+void init_command_list (void);
+
+/**
+ * Clear the list of available commands
+ */
+void clear_command_list (void);
+
 #endif
