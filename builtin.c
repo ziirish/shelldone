@@ -43,6 +43,7 @@
 
 #include "xutils.h"
 #include "builtin.h"
+#include "parser.h"
 
 extern int ret_code;
 
@@ -56,6 +57,21 @@ sd_exit (int argc, char **argv, int in, int out, int err)
     if (argc == 0)
         exit (ret_code);
     exit (strtoul (argv[0], NULL, 0));
+}
+
+int
+sd_rehash (int argc, char **argv, int in, int out, int err)
+{
+    (void) argc;
+    (void) argv;
+    (void) in;
+    (void) out;
+    (void) err;
+
+    clear_command_list ();
+    init_command_list ();
+
+    return 0;
 }
 
 int 

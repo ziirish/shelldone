@@ -47,6 +47,7 @@ static const builtin calls[] = {{"cd", (cmd_builtin) sd_cd},
                                 {"pwd", (cmd_builtin) sd_pwd},
                                 {"exec", (cmd_builtin) sd_exec},
                                 {"exit", (cmd_builtin) sd_exit},
+                                {"rehash", (cmd_builtin) sd_rehash},
 /*                              {"echo", (cmd_builtin) sd_echo}, */
                                 {NULL, NULL}};
 

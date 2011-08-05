@@ -59,6 +59,17 @@ struct _builtin {
 int sd_exit (int argc, char **argv, int in, int out, int err);
 
 /**
+ * Builtin command to rehash the command list
+ * @param argc Number of arguments passed to the command
+ * @param argv Array of strings containing the arguments passed to the command
+ * @param in Descriptor of the standard input 
+ * @param out Descriptor of the standard output
+ * @param err Descriptor of the standard error output
+ * @return 0 if the command succeed, non-zero if not
+ */
+int sd_rehash (int argc, char **argv, int in, int out, int err);
+
+/**
  * Builtin command to move into another directory
  * @param argc Number of arguments passed to the command
  * @param argv Array of strings containing the arguments passed to the command
