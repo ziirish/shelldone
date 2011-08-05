@@ -61,6 +61,8 @@ shelldone_init (void)
     gethostname (host, 30);
 
     init_ioctl ();
+
+    init_command_list ();
 }
 
 /* Cleanup function */
@@ -69,6 +71,7 @@ shelldone_clean (void)
 {
     xfree (host);
     xfree (prompt);
+    clear_command_list ();
 }
 
 /* Input initialization function */
