@@ -132,6 +132,7 @@ completion (const char *prompt, char *buf, int ind)
     {
         xfree_list (split, s_split);
         xfree (tmp);
+        return NULL;
     }
 
     list = xcalloc (n * 10, sizeof (char *));
@@ -167,11 +168,28 @@ completion (const char *prompt, char *buf, int ind)
     }
     else if (j > 1)
     {
+        size_t s_min = 10000;
+        int ind_min = -1;
         fprintf (stdout, "\n");
         for (i = 0; i < j; i++)
+        {
+            size_t s_tmp = xstrlen (list[i]);
+            if (s_tmp < s_min)
+            {
+                s_min = s_tmp;
+                ind_min = i;
+            }
             fprintf (stdout, "%s\t", list[i]);
-        fprintf (stdout, "\n%s%s", prompt, tmp);
+        }
+        ret = (s_min > xstrlen (tmp) && ind_min > -1) ?
+                    list[ind_min] :
+                    NULL;
+        fprintf (stdout, 
+                 "\n%s%s", 
+                 prompt,
+                 ret != NULL ? ret : tmp);
         fflush (stdout);
+
     }
     xfree (list);
     xfree_list (split, s_split);
