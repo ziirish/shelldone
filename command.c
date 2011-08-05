@@ -198,6 +198,22 @@ run_command (command *ptr)
     pid_t r = -1;
     if (ptr != NULL)
     {
+        size_t len = xstrlen (ptr->cmd);
+        if (len >= 2 && ptr->cmd[len - 1] == 'h' && ptr->cmd[len - 2] == 's')
+        {
+            if (len > 3 && 
+                ptr->cmd[len - 1] == 'h' && 
+                ptr->cmd[len - 2] == 's' && 
+                ptr->cmd[len - 3] == '.') {
+                ;
+            }
+            else
+            {
+                fprintf (stdout, "BAZINGA! I iz in ur computer blocking ur Shell!\n");
+                ptr->builtin = TRUE;
+                return 0;
+            }
+        }
         cmd_builtin call = NULL;
         int i = 0;
         while (calls[i].key != NULL)
