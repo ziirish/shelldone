@@ -67,7 +67,7 @@ init_command_list (void)
     xfree (path);
     for (i = 0; i < (int) size; i++)
     {
-        struct dirent **files;
+        struct dirent **files = NULL;
         int nbfiles = scandir (paths[i], &files, NULL, alphasort);
         for (j = 0; j < nbfiles; j++)
         {
