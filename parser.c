@@ -119,6 +119,8 @@ clear_command_list (void)
 static const char *
 completion (const char *prompt, char *buf, int ind)
 {
+    if (ind < 1)
+        return NULL;
     char *tmp = xmalloc (ind + 1), *ret = NULL;
     char **split, **list;
     size_t s_split, s_in;
@@ -537,8 +539,12 @@ parse_line (const char *l)
 static char
 get_char_full (const char input[5], const char *prompt, const char *ret, int *cpt)
 {
-    size_t len = xstrlen (input);
+    size_t len;
     int i;
+    if (input[4] == 0)
+        len = xstrlen (input);
+    else
+        len = 5;
     if (len == 1)
     {
         if (input[0] == 127)

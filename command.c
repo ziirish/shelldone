@@ -209,7 +209,7 @@ run_command (command *ptr)
             }
             else
             {
-                fprintf (stdout, "BAZINGA! I iz in ur computer blocking ur Shell!\n");
+                fprintf (stdout, "BAZINGA! I iz in ur term blocking ur Shell!\n");
                 ptr->builtin = TRUE;
                 return 0;
             }
@@ -298,7 +298,7 @@ run_line (input_line *ptr)
             {
             /* 
              * launch a command in background is pretty much the same as
-             * launch it in forground exept in one case we wait until it's
+             * launch it in forground except in one case we wait until it's
              * done and in the other case we don't
              */
             case BG:
