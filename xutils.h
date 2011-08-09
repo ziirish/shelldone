@@ -122,7 +122,7 @@ char *xstrcat (char *dest, const char *src);
  * @param size Pointer that will contains the size of the returned array
  * @return Array of strings
  */
-char **xstrsplit (char *src, const char *token, size_t *size);
+char **xstrsplit (const char *src, const char *token, size_t *size);
 
 /**
  * Joins an array of strings into a string using the given join

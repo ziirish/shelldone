@@ -40,37 +40,58 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
+#include <sys/wait.h>
 #include <termios.h>
+#include <signal.h>
 
 #include "xutils.h"
 #include "parser.h"
 #include "command.h"
 
+/**
+ * XXX: is there a better way to store these variables?
+ */
 static char *prompt = NULL;
 static char *host = NULL;
 static const char *fpwd = NULL;
+static input_line *l = NULL;
+static char *li = NULL;
 
+static void shelldone_init (void);
+static void shelldone_clean (void);
 static void init_ioctl (void);
+static void handler (int signal);
+static const char *get_prompt (void);
 
 /* Initialization function */
 static void
 shelldone_init (void)
 {
-    host = malloc (30);
-
+    /* get the hostname */
+    host = xmalloc (30);
     gethostname (host, 30);
-
+    /* set the input in raw mode */
     init_ioctl ();
-
+    /* load the commands list */
     init_command_list ();
+    /* register the cleanup function */
+    atexit (shelldone_clean);
+    /* ignoring SIGINT */
+    signal (SIGINT, handler);
 }
 
 /* Cleanup function */
 static void
 shelldone_clean (void)
 {
+    xfree (li);
     xfree (host);
     xfree (prompt);
+    free_line (l);
+    li = NULL;
+    host = NULL;
+    prompt = NULL;
+    l = NULL;
     clear_command_list ();
 }
 
@@ -87,6 +108,14 @@ init_ioctl (void)
     term.c_cc[VTIME] = 0;
     if (ioctl(0, TCSETS, &term) != 0)
         printf("ioctl S prob\n");
+}
+
+static void
+handler (int signal)
+{
+    shelldone_clean ();
+    fprintf (stderr, "\nTerminated with signal: %s\n", strsignal (signal));
+    exit (0);
 }
 
 /**
@@ -145,26 +174,32 @@ main (int argc, char **argv)
 
     while (1)
     {
-        const char *pt = get_prompt ();
-        char *li = read_line (pt);
-        if (xstrcmp ("quit", li) == 0)
-        {
+/*        pid_t pid = fork (); */
+/*        if (pid == 0) */
+/*        { */
+/*            signal (SIGINT, handler); */
             xfree (li);
-            break;
-        }
-        input_line *l = parse_line (li);
+            free_line (l);
+            li = NULL;
+            l = NULL;
+            const char *pt = get_prompt ();
+            li = read_line (pt);
+            if (xstrcmp ("quit", li) == 0)
+                break;
+/*                exit (0); */
+            l = parse_line (li);
 /*        dump_line (l); */
-        run_line (l);
-        free_line (l);
-        xfree (li);
+            run_line (l);
+/*            exit (0); */
+/*        } */
+/*        signal (SIGINT, handler); */
+/*        waitpid (pid, NULL, 0); */
     }
 
-    shelldone_clean ();
-
 /* avoid the 'unused variables' warning */
-
     (void) argc;
     (void) argv;
 
+/* we don't need to cleanup anything since we registered the cleanup function */
     return 0;
 }

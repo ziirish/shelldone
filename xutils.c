@@ -31,8 +31,8 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
-#ifndef _GNU_SOURCE
-    #define _GNU_SOURCE
+#ifndef _BSD_SOURCE
+    #define _BSD_SOURCE
 #endif
 
 #include <stdlib.h>
@@ -179,14 +179,17 @@ xstrcat (char *dest, const char *src)
 }
 
 char **
-xstrsplit (char *src, const char *token, size_t *size)
+xstrsplit (const char *src, const char *token, size_t *size)
 {
     char **ret;
     int n = 1;
-    char *save, *tmp = strtok_r (src, token, &save);
+    char *save, *tmp, *init;
+    init = xstrdup (src);
+    tmp = strtok_r (init, token, &save);
     *size = 0;
     if (tmp == NULL)
     {
+        xfree (init);
         return NULL;
     }
     ret = xcalloc (10, sizeof (char *));
@@ -201,14 +204,17 @@ xstrsplit (char *src, const char *token, size_t *size)
                 for (;*size > 0; (*size)--)
                     xfree (ret[*size-1]);
                 xfree (ret);
+                xfree (init);
                 return NULL;
             }
+            ret = new;
         }
         ret[*size] = xstrdup (tmp);
         tmp = strtok_r (NULL, token, &save);
         (*size)++;
     }
 
+    xfree (init);
     return ret;
 }
 
@@ -246,12 +252,7 @@ xstrjoin (char **tab, int size, const char *join)
         {
             size_t s = xstrlen (tab[i]) + xstrlen (join) + xstrlen (ret) + 1;
             char *t = xmalloc (s * sizeof (char));
-            snprintf (t, 
-                      s, 
-                      "%s%s%s", 
-                      join,
-                      tab[i], 
-                      ret);
+            snprintf (t, s, "%s%s%s", join, tab[i], ret);
             xfree (ret);
             ret = xstrdup (t);
             xfree (t);

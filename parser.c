@@ -34,6 +34,7 @@
 #ifndef _BSD_SOURCE
     #define _BSD_SOURCE
 #endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -59,12 +60,11 @@ cmpsort (const void *p1, const void *p2)
 void 
 init_command_list (void)
 {
-    char *path = xstrdup (getenv ("PATH"));
+    char *path = getenv ("PATH");
     size_t size;
     char **paths = xstrsplit (path, ":", &size);
     int i, j, k = 0, l, n = 1;
     char **tmp_command_list = xcalloc (n * 500, sizeof (char *));
-    xfree (path);
     for (i = 0; i < (int) size; i++)
     {
         struct dirent **files = NULL;
@@ -114,9 +114,10 @@ clear_command_list (void)
 {
     xfree_list (command_list, nb_commands);
     nb_commands = 0;
+    command_list = NULL;
 }
 
-static const char *
+static char *
 completion (const char *prompt, char *buf, int ind)
 {
     if (ind < 1)
@@ -162,11 +163,14 @@ completion (const char *prompt, char *buf, int ind)
     }
     if (j == 1)
     {
+        size_t s = xstrlen (list[0]);
+        ret = xmalloc (s + 2);
+        snprintf (ret, s+2, "%s ", list[0]);
+        ret[s+1] = '\0';
         for (i = 0; i < (int) s_in; i++)
             fprintf (stdout, "\b");
-        fprintf (stdout, "%s", list[0]);
+        fprintf (stdout, "%s", ret);
         fflush (stdout);
-        ret = list[0];
     }
     else if (j > 1)
     {
@@ -183,9 +187,12 @@ completion (const char *prompt, char *buf, int ind)
             }
             fprintf (stdout, "%s\t", list[i]);
         }
-        ret = (s_min > xstrlen (tmp) && ind_min > -1) ?
-                    list[ind_min] :
-                    NULL;
+        const char *t = (s_min > xstrlen (tmp) && ind_min > -1) ?
+                            list[ind_min] :
+                            NULL;
+        if (t != NULL)
+            ret = xstrdup (t);
+
         fprintf (stdout, 
                  "\n%s%s", 
                  prompt,
@@ -602,7 +609,7 @@ read_line (const char *prompt)
             fprintf (stdout, "[TAB]");
             fflush (stdout);
             */
-            const char *comp = completion (prompt, ret, cpt);
+            char *comp = completion (prompt, ret, cpt);
             if (comp != NULL)
             {
                 size_t s_comp = xstrlen (comp);
@@ -616,6 +623,7 @@ read_line (const char *prompt)
                     }
                     ret[cpt] = comp[iz];
                 }
+                xfree (comp);
             }
             c = -1;
             while (c == -1)
@@ -693,7 +701,6 @@ replay:
         }
         ret[cpt] = c;
         cpt++;
-/*        c = getchar (); */
         c = -1;
         while (c == -1)
         {

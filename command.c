@@ -31,12 +31,17 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
+#ifndef _BSD_SOURCE
+    #define _BSD_SOURCE
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <err.h>
 #include <sys/wait.h>
+#include <signal.h>
+#include <string.h>
 
 #include "builtin.h"
 #include "command.h"
@@ -52,6 +57,17 @@ static const builtin calls[] = {{"cd", (cmd_builtin) sd_cd},
                                 {NULL, NULL}};
 
 int ret_code = 0;
+static char *lastcmd = NULL;
+
+static void
+sighandler (int sig)
+{
+    fprintf (stdout, "\nprogram %s exited\n", lastcmd);
+    xfree (lastcmd);
+    lastcmd = NULL;
+    signal (SIGCHLD, SIG_DFL);
+    (void) sig;
+}
 
 command *
 new_cmd (void)
@@ -244,6 +260,7 @@ run_command (command *ptr)
             r = fork ();
             if (r == 0)
             {
+                signal (SIGINT, SIG_DFL);
                 if (ptr->in != 0)
                 {
                     close (0);
@@ -310,6 +327,11 @@ run_line (input_line *ptr)
                 {
                     waitpid (p, &ret, cmd->flag == BG ? WNOHANG : 0);
                     ret_code = WEXITSTATUS(ret);
+                    if (cmd->flag == BG)
+                    {
+                        lastcmd = xstrdup (cmd->cmd);
+                        signal (SIGCHLD, sighandler);
+                    }
                 }
                 else if (p == -1)
                     ret_code = 254;

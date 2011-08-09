@@ -183,7 +183,7 @@ sd_cd (int argc, char **argv, int in, int out, int err)
         }
         else if (xstrcmp (target, ".") != 0)
         {
-            char *oldpwd = xstrdup (getenv ("OLDPWD")), *res;
+            char *oldpwd = getenv ("OLDPWD"), *res;
             size_t s_old, s_tar;
             char **old_tab, **tar_tab, **full;
             int i, j;
@@ -200,7 +200,6 @@ sd_cd (int argc, char **argv, int in, int out, int err)
             }
             xfree_list (old_tab, s_old);
             xfree_list (tar_tab, s_tar);
-            xfree (oldpwd);
             i = 0;
             j = 0;
             while (i < (int) (s_old + s_tar))
