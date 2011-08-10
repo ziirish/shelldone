@@ -214,6 +214,13 @@ sd_cd (int argc, char **argv, int in, int out, int err)
                     i++;
                     continue;
                 }
+                else if (xstrcmp (full[i], ".") == 0)
+                {
+                    xfree (full[i]);
+                    full[i] = NULL;
+                    i++;
+                    continue;
+                }
                 full[j] = full[i];
                 j++;
                 i++;
