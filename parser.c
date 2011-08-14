@@ -120,8 +120,10 @@ clear_command_list (void)
 static char *
 completion (const char *prompt, char *buf, int ind)
 {
-    if (ind < 1)
+    static int save;
+    if (ind < 1 || save == ind)
         return NULL;
+    save = ind;
     char *tmp = xmalloc (ind + 1), *ret = NULL;
     char **split, **list;
     size_t s_split, s_in;
@@ -544,7 +546,7 @@ parse_line (const char *l)
 }
 
 static char
-get_char_full (const char input[5], const char *prompt, const char *ret, int *cpt)
+get_char (const char input[5], const char *prompt, const char *ret, int *cpt)
 {
     size_t len;
     int i;
@@ -579,8 +581,6 @@ get_char_full (const char input[5], const char *prompt, const char *ret, int *cp
     return -1;
 }
 
-#define get_char(in) get_char_full (in, prompt, ret, &cpt)
-
 char *
 read_line (const char *prompt)
 {
@@ -599,7 +599,7 @@ read_line (const char *prompt)
     {
         memset (in, 0, 5);
         read (0, &in, 5);
-        c = get_char (in);
+        c = get_char (in, prompt, ret, &cpt);
     }
     while (c != '\n' || (c == '\n' && (squote || dquote)) || nb_lines != antislashes)
     {
@@ -630,7 +630,7 @@ read_line (const char *prompt)
             {
                 memset (in, 0, 5);
                 read (0, &in, 5);
-                c = get_char (in);
+                c = get_char (in, prompt, ret, &cpt);
             }
             continue;
         }
@@ -655,11 +655,11 @@ read_line (const char *prompt)
             {
                 memset (tmp, 0, 5);
                 read (0, &tmp, 5);
-                ctmp = get_char (tmp);
+                ctmp = get_char (tmp, prompt, ret, &cpt);
             }
-            if (get_char (tmp) == '\n')
+            if (get_char (tmp, prompt, ret, &cpt) == '\n')
             {
-                c = get_char (tmp);
+                c = get_char (tmp, prompt, ret, &cpt);
                 antislashes++;
                 fprintf (stdout, "\n> ");
                 fflush (stdout);
@@ -674,7 +674,7 @@ read_line (const char *prompt)
             {
                 memset (in, 0, 5);
                 read (0, &in, 5);
-                c = get_char (in);
+                c = get_char (in, prompt, ret, &cpt);
             }
             nb_lines++;
             continue;
@@ -695,7 +695,7 @@ replay:
         {
             read_tmp = 0;
             ret[cpt] = c;
-            c = get_char (tmp);
+            c = get_char (tmp, prompt, ret, &cpt);
             cpt++;
             goto replay;
         }
@@ -706,7 +706,7 @@ replay:
         {
             memset (in, 0, 5);
             read (0, &in, 5);
-            c = get_char (in);
+            c = get_char (in, prompt, ret, &cpt);
         }
     }
     fprintf (stdout, "\n");
