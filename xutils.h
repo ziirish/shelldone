@@ -141,6 +141,6 @@ char *xstrjoin (char **tab, int size, const char *join);
  * @param size The full size of the input
  * @param ind Indice of the error
  */
-void parse_error (const char input[], int size, int ind);
+void syntax_error (const char input[], int size, int ind);
 
 #endif

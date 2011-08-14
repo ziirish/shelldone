@@ -397,7 +397,7 @@ parse_line (const char *l)
             char *file;
             if (curr == NULL)
             {
-                parse_error (l, size, cpt);
+                syntax_error (l, size, cpt);
                 free_line (ret);
                 return NULL;
             }
@@ -433,7 +433,7 @@ parse_line (const char *l)
                 {
                     if (cpt + 2 > size)
                     {
-                        parse_error (l, size, cpt);
+                        syntax_error (l, size, cpt);
                         free_cmd (curr);
                         free_line (ret);
                         return NULL;
@@ -442,7 +442,7 @@ parse_line (const char *l)
                     {
                         if (cpt + 3 < size && isdigit (l[cpt+3]))
                         {
-                            parse_error (l, size, cpt+3);
+                            syntax_error (l, size, cpt+3);
                             free_cmd (curr);
                             free_line (ret);
                             return NULL;
@@ -479,7 +479,7 @@ parse_line (const char *l)
             if (zi == 0)
             {
                 xfree (file);
-                parse_error (l, size, cpt);
+                syntax_error (l, size, cpt);
                 free_cmd (curr);
                 free_line (ret);
                 return NULL;

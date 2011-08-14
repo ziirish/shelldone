@@ -268,7 +268,7 @@ xstrjoin (char **tab, int size, const char *join)
 }
 
 void
-parse_error (const char input[], int size, int ind)
+syntax_error (const char input[], int size, int ind)
 {
     int i;
     for (i = 0; i < size; i++)
@@ -277,5 +277,5 @@ parse_error (const char input[], int size, int ind)
     for (i = 0; i < ind; i++)
         fprintf (stderr, " ");
     fprintf (stderr, "^\n");
-    fprintf (stderr, "parse error near '%c'\n", input[ind]);
+    fprintf (stderr, "syntax error near '%c'\n", input[xmin (ind, size)]);
 }
