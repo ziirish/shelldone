@@ -78,6 +78,8 @@ struct _command_line {
     int oflag;
     /* is it a builtin command */
     unsigned int builtin;
+    /* pid of the command */
+    pid_t pid;
     /* next cmd */
     command *next;
     /* prev cmd */

@@ -135,4 +135,12 @@ char *xstrjoin (char **tab, int size, const char *join);
 /* Macro to simplify the above command */
 #define xastrjoin(tab, join) xstrjoin (tab, -1, join);
 
+/**
+ * Shows where there is an error while parsing the user input
+ * @param input The full input
+ * @param size The full size of the input
+ * @param ind Indice of the error
+ */
+void parse_error (const char input[], int size, int ind);
+
 #endif

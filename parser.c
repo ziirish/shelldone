@@ -43,6 +43,8 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <ctype.h>
+#include <errno.h>
 
 #include "command.h"
 #include "parser.h"
@@ -57,6 +59,12 @@ cmpsort (const void *p1, const void *p2)
     return xstrcmp(* (char * const *) p1, * (char * const *) p2);
 }
 
+static int
+exec_filter (const struct dirent *p)
+{
+    return S_ISREG(DTTOIF(p->d_type));
+}
+
 void 
 init_command_list (void)
 {
@@ -65,10 +73,14 @@ init_command_list (void)
     char **paths = xstrsplit (path, ":", &size);
     int i, j, k = 0, l, n = 1;
     char **tmp_command_list = xcalloc (n * 500, sizeof (char *));
+    /* 
+     * first of all, we store each executables files in each directories of the
+     * PATH variable
+     */
     for (i = 0; i < (int) size; i++)
     {
         struct dirent **files = NULL;
-        int nbfiles = scandir (paths[i], &files, NULL, alphasort);
+        int nbfiles = scandir (paths[i], &files, exec_filter, alphasort);
         for (j = 0; j < nbfiles; j++)
         {
             if (k >= n * 500)
@@ -77,20 +89,18 @@ init_command_list (void)
                 tmp_command_list = xrealloc (tmp_command_list, 
                                          n * 500 * sizeof (char *));
             }
-            if (S_ISREG(DTTOIF(files[j]->d_type)) && 
-                access(files[j]->d_name, X_OK))
-            {
-                tmp_command_list[k] = xstrdup (files[j]->d_name);
-                k++;
-            }
+            tmp_command_list[k] = xstrdup (files[j]->d_name);
+            k++;
             xfree (files[j]);
         }
         xfree (files);
     }
     xfree_list (paths, size);
+    /* then we sort the list */
     qsort (tmp_command_list, k, sizeof (char *), cmpsort);
     n = 1;
     command_list = xcalloc (n * 500, sizeof (char *));
+    /* finally we remove each duplicates files */ 
     for (i = 0, j = 1, l = 0; j < k; i++)
     {
         if (i >= n * 500)
@@ -120,7 +130,8 @@ clear_command_list (void)
 static char *
 completion (const char *prompt, char *buf, int ind)
 {
-    static int save;
+    /* in order to avoid multiple [TAB] hits we store the last index */
+    static int save = 0;
     if (ind < 1 || save == ind)
         return NULL;
     save = ind;
@@ -205,6 +216,8 @@ completion (const char *prompt, char *buf, int ind)
     xfree (list);
     xfree_list (split, s_split);
     xfree (tmp);
+    if (ret != NULL)
+        save = xstrlen (ret);
     return ret;
 }
 
@@ -263,6 +276,7 @@ copy_cmd (const command *src)
     ret->prev = src->prev;
     ret->next = src->next;
     ret->builtin = src->builtin;
+    ret->pid = src->pid;
     if (src->argc > 0)
     {
         ret->argv = xcalloc (src->argc, sizeof (char *));
@@ -373,6 +387,138 @@ parse_line (const char *l)
                 i = 0;
                 begin = 0;
             }
+            continue;
+        }
+        if (!(squote || dquote) &&
+            (l[cpt] == '<' || l[cpt] == '>'))
+        {
+            unsigned int read;
+            int f = 1, zi = 0, fd = -1, flags;
+            char *file;
+            if (curr == NULL)
+            {
+                parse_error (l, size, cpt);
+                free_line (ret);
+                return NULL;
+            }
+            switch (l[cpt])
+            {
+            case '<':
+                read = TRUE;
+                flags = O_RDONLY;
+                break;
+            case '>':
+            {
+                read = FALSE;
+                flags = O_CREAT|O_WRONLY;
+                if (cpt + 1 < size && l[cpt+1] != '>')
+                {
+                    flags |= O_TRUNC;
+                }
+                else
+                {
+                    cpt++;
+                    flags |= O_APPEND;
+                }
+
+                if ((cpt > 2 && isdigit (l[cpt-1]) && !isdigit (l[cpt-2])) ||
+                    (cpt > 1 && isdigit (l[cpt-1])))
+                {
+                    char pt = l[cpt-1];
+                    fd = atoi (&pt);
+                    i--;
+                }
+
+                if (fd != -1)
+                {
+                    if (cpt + 2 > size)
+                    {
+                        parse_error (l, size, cpt);
+                        free_cmd (curr);
+                        free_line (ret);
+                        return NULL;
+                    }
+                    if (l[cpt+1] == '&' && isdigit (l[cpt+2]))
+                    {
+                        if (cpt + 3 < size && isdigit (l[cpt+3]))
+                        {
+                            parse_error (l, size, cpt+3);
+                            free_cmd (curr);
+                            free_line (ret);
+                            return NULL;
+                        }
+                        char pt = l[cpt+2];
+                        if (fd == 2)
+                            curr->err = atoi (&pt);
+                        else if (fd == 1)
+                            curr->out = atoi (&pt);
+                        cpt += 3;
+                        continue;
+                    }
+                }
+                break;
+            }
+            }
+            file = xmalloc (f * BUF * sizeof (char));
+            cpt++;
+            while (cpt < size && 
+                   (isalnum (l[cpt]) || 
+                    l[cpt] == '.' || 
+                    l[cpt] == '-' || 
+                    l[cpt] == '_'))
+            {
+                if (zi >= f * BUF)
+                {
+                    f++;
+                    file = xrealloc (file, f * BUF * sizeof (char));
+                }
+                file[zi] = l[cpt];
+                zi++;
+                cpt++;
+            }
+            if (zi == 0)
+            {
+                xfree (file);
+                parse_error (l, size, cpt);
+                free_cmd (curr);
+                free_line (ret);
+                return NULL;
+            }
+            if (zi >= f * BUF)
+            {
+                file = xrealloc (file, (f * BUF + 1) * sizeof (char));
+            }
+            file[zi] = '\0';
+            int desc;
+            if (read)
+                desc = open (file, flags);
+            else
+                desc = open (file, flags, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP);
+            if (desc < 0)
+            {
+                fprintf (stderr, "%s: %s\n", file, strerror (errno));
+                xfree (file);
+                free_cmd (curr);
+                free_line (ret);
+                return NULL;
+            }
+            if (read)
+                curr->in = desc;
+            else
+            {
+                switch (fd)
+                {
+                case 1:
+                    curr->out = desc;
+                    break;
+                case 2:
+                    curr->err = desc;
+                    break;
+                default:
+                    curr->out = desc;
+                }
+            }
+            xfree (file);
             continue;
         }
         if (!(squote || dquote) &&

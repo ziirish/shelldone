@@ -271,6 +271,14 @@ run_command (command *ptr)
                     close (1);
                     dup (ptr->out);
                 }
+                if (ptr->err != 2)
+                {
+                    close (2);
+                    if (ptr->err == ptr->out)
+                        dup2 (2, 1);
+                    else
+                        dup (ptr->err);
+                }
                 /* Here we add the argv[0] which is the program name */
                 char ** argv;
                 if (ptr->argc > 0)
@@ -322,6 +330,7 @@ run_line (input_line *ptr)
             case END:
             {
                 pid_t p = run_command (cmd);
+                cmd->pid = p;
                 /* p should never be equal to -1 */
                 if (p != -1 && !cmd->builtin)
                 {
@@ -355,6 +364,7 @@ run_line (input_line *ptr)
                     save = exec;
                 exec = cmd;
                 p = run_command (exec);
+                exec->pid = p;
                 if (p != -1 && !exec->builtin)
                 {
                     waitpid (p, &ret, 0);
@@ -369,6 +379,7 @@ run_line (input_line *ptr)
                                         (ret_code != 0)))
                 {
                     p = run_command (exec);
+                    exec->pid = p;
                     if (p != -1 && !exec->builtin)
                     {
                         waitpid (p, &ret, 0);
@@ -403,8 +414,11 @@ run_line (input_line *ptr)
                         exec->out = fd[1];
                     p[i] = run_command (exec);
                     builtins[i] = exec->builtin;
+                    exec->pid = p[i];
                     if (exec->out != 1)
                         close (exec->out);
+                    if (exec->err != 2 && exec->err != exec->out)
+                        close (exec->err);
                     save = exec;
                     exec = exec->next;
                     if (exec != NULL)

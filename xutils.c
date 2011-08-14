@@ -213,6 +213,11 @@ xstrsplit (const char *src, const char *token, size_t *size)
         tmp = strtok_r (NULL, token, &save);
         (*size)++;
     }
+    if ((int) *size + 1 > n * 10)
+    {
+        ret = xrealloc (ret, (n * 10 + 1) * sizeof (char *));
+    }
+    ret[*size+1] = NULL;
 
     xfree (init);
     return ret;
@@ -260,4 +265,17 @@ xstrjoin (char **tab, int size, const char *join)
     }
     ret[len] = '\0';
     return ret;
+}
+
+void
+parse_error (const char input[], int size, int ind)
+{
+    int i;
+    for (i = 0; i < size; i++)
+        fprintf (stderr, "%c", input[i]);
+    fprintf (stderr, "\n");
+    for (i = 0; i < ind; i++)
+        fprintf (stderr, " ");
+    fprintf (stderr, "^\n");
+    fprintf (stderr, "parse error near '%c'\n", input[ind]);
 }

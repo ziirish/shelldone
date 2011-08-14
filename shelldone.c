@@ -43,6 +43,7 @@
 #include <sys/wait.h>
 #include <termios.h>
 #include <signal.h>
+#include <setjmp.h>
 
 #include "xutils.h"
 #include "parser.h"
@@ -56,6 +57,8 @@ static char *host = NULL;
 static const char *fpwd = NULL;
 static input_line *l = NULL;
 static char *li = NULL;
+static jmp_buf env;
+static int val;
 
 static void shelldone_init (void);
 static void shelldone_clean (void);
@@ -111,10 +114,13 @@ init_ioctl (void)
 }
 
 static void
-handler (int signal)
+handler (int sig)
 {
+    signal (SIGINT, handler);
+    fprintf (stdout, "\n");
+    longjmp (env, !val);
     shelldone_clean ();
-    fprintf (stderr, "\nTerminated with signal: %s\n", strsignal (signal));
+    fprintf (stderr, "\nTerminated with signal: %s\n", strsignal (sig));
     exit (0);
 }
 
@@ -178,6 +184,7 @@ main (int argc, char **argv)
 /*        if (pid == 0) */
 /*        { */
 /*            signal (SIGINT, handler); */
+            val = setjmp (env);
             xfree (li);
             free_line (l);
             li = NULL;
