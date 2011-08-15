@@ -81,10 +81,11 @@ new_cmd (void)
         ret->next = NULL;
         ret->prev = NULL;
         ret->flag = END;
-        ret->in = 0;
-        ret->out = 1;
-        ret->err = 2;
+        ret->in = STDIN_FILENO;
+        ret->out = STDOUT_FILENO;
+        ret->err = STDERR_FILENO;
         ret->builtin = FALSE;
+        ret->pid = -1;
     }
     return ret;
 }
@@ -261,23 +262,20 @@ run_command (command *ptr)
             if (r == 0)
             {
                 signal (SIGINT, SIG_DFL);
-                if (ptr->in != 0)
+                if (ptr->in != STDIN_FILENO)
                 {
-                    close (0);
-                    dup (ptr->in);
+                    dup2 (ptr->in, STDIN_FILENO);
                 }
-                if (ptr->out != 1)
+                if (ptr->out != STDOUT_FILENO)
                 {
-                    close (1);
-                    dup (ptr->out);
+                    dup2 (ptr->out, STDOUT_FILENO);
                 }
-                if (ptr->err != 2)
+                if (ptr->err != STDERR_FILENO)
                 {
-                    close (2);
-                    if (ptr->err == ptr->out)
-                        dup2 (2, 1);
+                    if (ptr->err == STDOUT_FILENO)
+                        dup2 (ptr->out, STDERR_FILENO);
                     else
-                        dup (ptr->err);
+                        dup2 (ptr->err, STDERR_FILENO);
                 }
                 /* Here we add the argv[0] which is the program name */
                 char ** argv;
@@ -415,9 +413,9 @@ run_line (input_line *ptr)
                     p[i] = run_command (exec);
                     builtins[i] = exec->builtin;
                     exec->pid = p[i];
-                    if (exec->out != 1)
+                    if (exec->out != STDOUT_FILENO)
                         close (exec->out);
-                    if (exec->err != 2 && exec->err != exec->out)
+                    if (exec->err != STDERR_FILENO && exec->err != STDOUT_FILENO)
                         close (exec->err);
                     save = exec;
                     exec = exec->next;

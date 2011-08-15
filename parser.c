@@ -424,8 +424,9 @@ parse_line (const char *l)
                 if ((cpt > 2 && isdigit (l[cpt-1]) && !isdigit (l[cpt-2])) ||
                     (cpt > 1 && isdigit (l[cpt-1])))
                 {
-                    char pt = l[cpt-1];
-                    fd = atoi (&pt);
+                    char buf[128];
+                    snprintf (buf, 128, "%c", l[cpt-1]);
+                    fd = atoi (buf);
                     i--;
                 }
 
@@ -447,11 +448,12 @@ parse_line (const char *l)
                             free_line (ret);
                             return NULL;
                         }
-                        char pt = l[cpt+2];
-                        if (fd == 2)
-                            curr->err = atoi (&pt);
-                        else if (fd == 1)
-                            curr->out = atoi (&pt);
+                        char buf[128];
+                        snprintf (buf, 128, "%c", l[cpt+2]);
+                        if (fd == STDERR_FILENO)
+                            curr->err = atoi (buf);
+                        else if (fd == STDOUT_FILENO)
+                            curr->out = atoi (buf);
                         cpt += 3;
                         continue;
                     }
