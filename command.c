@@ -268,7 +268,10 @@ run_command (command *ptr)
                 }
                 if (ptr->out != STDOUT_FILENO)
                 {
-                    dup2 (ptr->out, STDOUT_FILENO);
+                    if (ptr->out == STDERR_FILENO)
+                        dup2 (ptr->err, STDOUT_FILENO);
+                    else
+                        dup2 (ptr->out, STDOUT_FILENO);
                 }
                 if (ptr->err != STDERR_FILENO)
                 {
@@ -413,9 +416,11 @@ run_line (input_line *ptr)
                     p[i] = run_command (exec);
                     builtins[i] = exec->builtin;
                     exec->pid = p[i];
-                    if (exec->out != STDOUT_FILENO)
+                    if (exec->out != STDOUT_FILENO && 
+                        exec->out != STDERR_FILENO)
                         close (exec->out);
-                    if (exec->err != STDERR_FILENO && exec->err != STDOUT_FILENO)
+                    if (exec->err != STDERR_FILENO && 
+                        exec->err != STDOUT_FILENO)
                         close (exec->err);
                     save = exec;
                     exec = exec->next;
