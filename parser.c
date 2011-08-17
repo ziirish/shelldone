@@ -389,6 +389,8 @@ parse_line (const char *l)
             }
             continue;
         }
+        if (!(squote || dquote) && l[cpt] == '#')
+            break;
         if (!(squote || dquote) &&
             (l[cpt] == '<' || l[cpt] == '>'))
         {
@@ -426,7 +428,7 @@ parse_line (const char *l)
                 {
                     char buf[128];
                     snprintf (buf, 128, "%c", l[cpt-1]);
-                    fd = atoi (buf);
+                    fd = strtol (buf, NULL, 10);
                     i--;
                 }
 
@@ -451,9 +453,9 @@ parse_line (const char *l)
                         char buf[128];
                         snprintf (buf, 128, "%c", l[cpt+2]);
                         if (fd == STDERR_FILENO)
-                            curr->err = atoi (buf);
+                            curr->err = strtol (buf, NULL, 10);
                         else if (fd == STDOUT_FILENO)
-                            curr->out = atoi (buf);
+                            curr->out = strtol (buf, NULL, 10);
                         cpt += 3;
                         continue;
                     }
@@ -510,10 +512,10 @@ parse_line (const char *l)
             {
                 switch (fd)
                 {
-                case 1:
+                case STDOUT_FILENO:
                     curr->out = desc;
                     break;
-                case 2:
+                case STDERR_FILENO:
                     curr->err = desc;
                     break;
                 default:
