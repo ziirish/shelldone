@@ -80,13 +80,16 @@ sd_pwd (int argc, char **argv, int in, int out, int err)
     FILE *fdout, *fderr;
     char *pwd;
     
-    if (out != 1)
-        fdout = fdopen (out, "a");
+    if (out != STDOUT_FILENO)
+        if (out == err)
+            fdout = stderr;
+        else
+            fdout = fdopen (out, "a");
     else
         fdout = stdout;
     if (err == out)
         fderr = fdout;
-    else if (err != 2)
+    else if (err != STDERR_FILENO)
         fderr = fdopen (err, "a");
     else
         fderr = stderr;
@@ -95,9 +98,9 @@ sd_pwd (int argc, char **argv, int in, int out, int err)
     {
         fprintf (fderr, "ERROR: too many arguments\n");
         fprintf (fderr, "usage: pwd\n");
-        if (out != 1)
+        if (out != STDOUT_FILENO)
             fclose (fdout);
-        if (err != 2 && err != out)
+        if (err != STDERR_FILENO && err != out)
             fclose (fderr);
 /*        _exit (1); */
         return 1;
@@ -107,9 +110,9 @@ sd_pwd (int argc, char **argv, int in, int out, int err)
     fprintf (fdout, "%s\n", /*getenv ("PWD")*/pwd);
     xfree (pwd);
 
-    if (out != 1)
+    if (out != STDOUT_FILENO)
         fclose (fdout);
-    if (err != 2 && err != out)
+    if (err != STDERR_FILENO && err != out)
         fclose (fderr);
 
     (void) argv;
