@@ -227,7 +227,7 @@ char *
 xstrjoin (char **tab, int size, const char *join)
 {
     char *ret;
-    size_t len = 0, tot = sizeof (tab) / sizeof (char *);
+    size_t len = 0;
     int i, first = 1;
     if (size > 0)
     {
@@ -236,7 +236,7 @@ xstrjoin (char **tab, int size, const char *join)
     }
     else
     {
-        for (i = 0; i < (int) tot && tab[i] != NULL; i++)
+        for (i = 0; tab[i] != NULL; i++)
             len += xstrlen (tab[i]);
     }
     len += (size > 0 ? size : i) * xstrlen (join);

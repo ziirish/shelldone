@@ -77,6 +77,8 @@ shelldone_init (void)
     init_ioctl ();
     /* load the commands list */
     init_command_list ();
+    /* load the history */
+    init_history ();
     /* register the cleanup function */
     atexit (shelldone_clean);
     /* ignoring SIGINT */
@@ -96,6 +98,7 @@ shelldone_clean (void)
     prompt = NULL;
     l = NULL;
     clear_command_list ();
+    clear_history ();
 }
 
 /* Input initialization function */

@@ -35,10 +35,11 @@
 #define _XUTILS_H_
 
 /* define a few useful MACRO */
-#define TRUE  1
-#define FALSE 0
-#define ARGC 10
-#define BUF 128
+#define TRUE      1
+#define FALSE     0
+#define ARGC     10
+#define BUF     128
+#define HISTORY 100
 
 /**
  * Returns the smallest value of the given parameters

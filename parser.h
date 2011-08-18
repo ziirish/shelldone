@@ -79,4 +79,14 @@ void init_command_list (void);
  */
 void clear_command_list (void);
 
+/**
+ * Built the history
+ */
+void init_history (void);
+
+/**
+ * Clear the history
+ */
+void clear_history (void);
+
 #endif

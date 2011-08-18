@@ -50,6 +50,8 @@
 #include "parser.h"
 #include "xutils.h"
 
+static char *history[HISTORY];
+static int last_history = 0, curr_history;
 static char **command_list = NULL;
 static int nb_commands = 0;
 
@@ -60,9 +62,17 @@ cmpsort (const void *p1, const void *p2)
 }
 
 static int
-exec_filter (const struct dirent *p)
+reg_filter (const struct dirent *p)
 {
     return S_ISREG(DTTOIF(p->d_type));
+}
+
+void
+init_history (void)
+{
+    int i;
+    for (i = 0; i < HISTORY; i++)
+        history[i] = NULL;
 }
 
 void 
@@ -80,7 +90,7 @@ init_command_list (void)
     for (i = 0; i < (int) size; i++)
     {
         struct dirent **files = NULL;
-        int nbfiles = scandir (paths[i], &files, exec_filter, alphasort);
+        int nbfiles = scandir (paths[i], &files, reg_filter, alphasort);
         for (j = 0; j < nbfiles; j++)
         {
             if (k >= n * 500)
@@ -117,6 +127,17 @@ init_command_list (void)
     }
     nb_commands = i;
     xfree_list (tmp_command_list, k);
+}
+
+void
+clear_history (void)
+{
+    int i;
+    for (i = 0; i < HISTORY && history[i] != NULL; i++)
+    {
+/*        fprintf (stdout, "history[%d] = %s\n", i, history[i]); */
+        xfree (history[i]);
+    }
 }
 
 void
@@ -339,7 +360,26 @@ parse_line (const char *l)
     size_t size = xstrlen (l);
     int new_word = 0, first = 1, new_command = 0, begin = 1, i = 0, factor = 1,
         factor2 = 1, arg = 0, squote = 0, dquote = 0;
+    unsigned int found = FALSE;
     command *curr = NULL;
+    /* do we save the command in the history? */
+    for (i = 0; i < HISTORY && history[i] != NULL; i++)
+    {
+        if (xstrcmp (history[i], l) == 0)
+        {
+            found = TRUE;
+            break;
+        }
+    }
+    if (!found)
+    {
+        last_history = last_history < HISTORY ? last_history : 0;
+        xfree (history[last_history]);
+        history[last_history] = xstrdup (l);
+        last_history++;
+    }
+    i = 0;
+    /* let's create the line container */
     ret = xmalloc (sizeof (*ret));
     if (ret == NULL)
         return NULL;
@@ -352,8 +392,10 @@ parse_line (const char *l)
         free_line (ret);
         return NULL;
     }
+    /* the parsing begin here */
     while (cpt < size)
     {
+        /* handle the quotes to protect some characters */
         if (l[cpt] == '\'' && !dquote)
         {
             cpt++;
@@ -366,9 +408,17 @@ parse_line (const char *l)
             dquote = !dquote;
             continue;
         }
+        /* 
+         * a 'space' found outside a quotation means we have done the current
+         * command/argument
+         */
         if (l[cpt] == ' ' && !(squote || dquote))
         {
             cpt++;
+            /* 
+             * of course if there are no non-space character before the space we
+             * don't close any word
+             */
             if (!first)
             {
                 if (i != 0 && begin)
@@ -389,8 +439,10 @@ parse_line (const char *l)
             }
             continue;
         }
+        /* we found a comment */
         if (!(squote || dquote) && l[cpt] == '#')
             break;
+        /* handle the redirections (ie. cmd 2>&1 >/tmp/blah) */
         if (!(squote || dquote) &&
             (l[cpt] == '<' || l[cpt] == '>'))
         {
@@ -405,10 +457,12 @@ parse_line (const char *l)
             }
             switch (l[cpt])
             {
+            /* redirecting the standard input is pretty simple */
             case '<':
                 read = TRUE;
                 flags = O_RDONLY;
                 break;
+            /* it's a bit more complicated for the standard/error output */
             case '>':
             {
                 read = FALSE;
@@ -423,11 +477,15 @@ parse_line (const char *l)
                     flags |= O_APPEND;
                 }
 
+                /* 
+                 * we can specify which file descriptor to redirect within the
+                 * command-line (ie. cmd 2>/tmp/errors 1>/tmp/output)
+                 */
                 if ((cpt > 2 && isdigit (l[cpt-1]) && !isdigit (l[cpt-2])) ||
                     (cpt > 1 && isdigit (l[cpt-1])))
                 {
-                    char buf[128];
-                    snprintf (buf, 128, "%c", l[cpt-1]);
+                    char buf[10];
+                    snprintf (buf, 10, "%c", l[cpt-1]);
                     fd = strtol (buf, NULL, 10);
                     i--;
                 }
@@ -441,6 +499,7 @@ parse_line (const char *l)
                         free_line (ret);
                         return NULL;
                     }
+                    /* do we redirect a descriptor to another one? */
                     if (l[cpt+1] == '&' && isdigit (l[cpt+2]))
                     {
                         if (cpt + 3 < size && isdigit (l[cpt+3]))
@@ -450,8 +509,8 @@ parse_line (const char *l)
                             free_line (ret);
                             return NULL;
                         }
-                        char buf[128];
-                        snprintf (buf, 128, "%c", l[cpt+2]);
+                        char buf[10];
+                        snprintf (buf, 10, "%c", l[cpt+2]);
                         if (fd == STDERR_FILENO)
                             curr->err = strtol (buf, NULL, 10);
                         else if (fd == STDOUT_FILENO)
@@ -463,6 +522,7 @@ parse_line (const char *l)
                 break;
             }
             }
+            /* get the filename */
             file = xmalloc (f * BUF * sizeof (char));
             cpt++;
             while (cpt < size && 
@@ -525,6 +585,7 @@ parse_line (const char *l)
             xfree (file);
             continue;
         }
+        /* end of command */
         if (!(squote || dquote) &&
             (l[cpt] == '|' || l[cpt] == ';' || l[cpt] == '&'))
         {
@@ -538,6 +599,7 @@ parse_line (const char *l)
                 curr->argv[curr->argc][i] = '\0';
                 curr->argc++;
             }
+            /* let's set the flag to know how to run the command */
             switch (l[cpt-1]) 
             {
             case '|':
@@ -696,10 +758,14 @@ parse_line (const char *l)
 }
 
 static char
-get_char (const char input[5], const char *prompt, const char *ret, int *cpt)
+get_char (const char input[5], 
+          const char *prompt, 
+          char **ret, 
+          int *cpt, 
+          int *n)
 {
     size_t len;
-    int i;
+    (void) prompt;
     if (input[4] == 0)
         len = xstrlen (input);
     else
@@ -718,16 +784,67 @@ get_char (const char input[5], const char *prompt, const char *ret, int *cpt)
         }
         return input[0];
     }
-/*    fprintf (stdout, "size: %d, in: %s\n", len, input);*/
-    fprintf (stdout, "\nsize: %d, in: ", len);
-    for (i = 0; i < (int) len; i++)
+    if (len >= 3 && input[0] == 27 && input[1] == '[')
     {
-        fprintf (stdout, "%c", input[i]);
+        switch (input[2])
+        {
+        case 'A':
+            if (curr_history > 0 && history[curr_history-1] != NULL)
+            {
+                for (; *cpt > 0; (*cpt)--)
+                    fprintf (stdout, "\b \b");
+                fprintf (stdout, "%s", history[curr_history-1]);
+                fflush (stdout);
+                curr_history = xmax (curr_history - 1, 0);
+                for (; *cpt < (int) xstrlen (history[curr_history]); (*cpt)++)
+                {
+                    if (*cpt >= *n * BUF)
+                    {
+                        (*n)++;
+                        *ret = xrealloc (*ret, *n * BUF * sizeof (char));
+                    }
+                    (*ret)[*cpt] = history[curr_history][*cpt];
+                }
+            }
+            break;
+        case 'B':
+            if (curr_history < last_history && history[curr_history+1] != NULL)
+            {
+                for (; *cpt > 0; (*cpt)--)
+                    fprintf (stdout, "\b \b");
+                fprintf (stdout, "%s", history[curr_history+1]);
+                fflush (stdout);
+                curr_history = xmin (curr_history + 1, HISTORY);
+                for (; *cpt < (int) xstrlen (history[curr_history]); (*cpt)++)
+                {
+                    if (*cpt >= *n * BUF)
+                    {
+                        (*n)++;
+                        *ret = xrealloc (*ret, *n * BUF * sizeof (char));
+                    }
+                    (*ret)[*cpt] = history[curr_history][*cpt];
+                }
+            }
+            break;
+        }
+    } 
+    else
+    {
+        int max = *cpt + len, i = 0;
+/*        fprintf (stdout, "\nmax: %d cpt: %d len: %d\n", max, *cpt, len); */
+        for (; *cpt < max; (*cpt)++)
+        {
+            if (*cpt >= *n * BUF)
+            {
+                (*n)++;
+                *ret = xrealloc (*ret, *n * BUF * sizeof (char));
+            }
+            (*ret)[*cpt] = input[i];
+            fprintf (stdout, "%c", input[i]);
+            i++;
+        }
+        fflush (stdout);
     }
-    fprintf (stdout, "\n%s", prompt);
-    for (i = 0; i < *cpt; i++)
-        fprintf (stdout, "%c", ret[i]);
-    fflush (stdout);
     return -1;
 }
 
@@ -738,6 +855,7 @@ read_line (const char *prompt)
     int cpt = 0, ind = 1, nb_lines = 0, antislashes = 0, read_tmp = 0,
         squote = 0, dquote = 0;
     char in[5], tmp[5], c = -1;
+    curr_history = last_history;
     if (ret == NULL)
         return NULL;
     if (prompt != NULL && xstrlen (prompt) > 0)
@@ -749,7 +867,7 @@ read_line (const char *prompt)
     {
         memset (in, 0, 5);
         read (0, &in, 5);
-        c = get_char (in, prompt, ret, &cpt);
+        c = get_char (in, prompt, &ret, &cpt, &ind);
     }
     while (c != '\n' || (c == '\n' && (squote || dquote)) || nb_lines != antislashes)
     {
@@ -780,7 +898,7 @@ read_line (const char *prompt)
             {
                 memset (in, 0, 5);
                 read (0, &in, 5);
-                c = get_char (in, prompt, ret, &cpt);
+                c = get_char (in, prompt, &ret, &cpt, &ind);
             }
             continue;
         }
@@ -805,11 +923,11 @@ read_line (const char *prompt)
             {
                 memset (tmp, 0, 5);
                 read (0, &tmp, 5);
-                ctmp = get_char (tmp, prompt, ret, &cpt);
+                ctmp = get_char (tmp, prompt, &ret, &cpt, &ind);
             }
-            if (get_char (tmp, prompt, ret, &cpt) == '\n')
+            if (get_char (tmp, prompt, &ret, &cpt, &ind) == '\n')
             {
-                c = get_char (tmp, prompt, ret, &cpt);
+                c = get_char (tmp, prompt, &ret, &cpt, &ind);
                 antislashes++;
                 fprintf (stdout, "\n> ");
                 fflush (stdout);
@@ -824,7 +942,7 @@ read_line (const char *prompt)
             {
                 memset (in, 0, 5);
                 read (0, &in, 5);
-                c = get_char (in, prompt, ret, &cpt);
+                c = get_char (in, prompt, &ret, &cpt, &ind);
             }
             nb_lines++;
             continue;
@@ -845,7 +963,7 @@ replay:
         {
             read_tmp = 0;
             ret[cpt] = c;
-            c = get_char (tmp, prompt, ret, &cpt);
+            c = get_char (tmp, prompt, &ret, &cpt, &ind);
             cpt++;
             goto replay;
         }
@@ -856,7 +974,7 @@ replay:
         {
             memset (in, 0, 5);
             read (0, &in, 5);
-            c = get_char (in, prompt, ret, &cpt);
+            c = get_char (in, prompt, &ret, &cpt, &ind);
         }
     }
     fprintf (stdout, "\n");
