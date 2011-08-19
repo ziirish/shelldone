@@ -43,17 +43,35 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/ioctl.h>
 #include <ctype.h>
 #include <errno.h>
+#include <termios.h>
 
 #include "command.h"
 #include "parser.h"
 #include "xutils.h"
+#include "structs.h"
 
 static char *history[HISTORY];
 static int last_history = 0, curr_history;
 static char **command_list = NULL;
 static int nb_commands = 0;
+static struct termios in_save;
+
+/* static functions */
+static void init_ioctl (void);
+static void clear_ioctl (void);
+static char *completion (const char *prompt, char *buf, int ind);
+static int cmpsort (const void *p1, const void *p2);
+static int reg_filter (const struct dirent *p);
+static void line_append (input_line **ptr, command *data);
+static command *copy_cmd (const command *src);
+static char get_char (const char input[5],
+                      const char *prompt,
+                      char **ret,
+                      int *cpt,
+                      int *n);
 
 static int
 cmpsort (const void *p1, const void *p2)
@@ -146,6 +164,29 @@ clear_command_list (void)
     xfree_list (command_list, nb_commands);
     nb_commands = 0;
     command_list = NULL;
+}
+
+/* Input initialization function */
+static void
+init_ioctl (void)
+{
+    struct termios term;
+
+    if (ioctl (STDIN_FILENO, TCGETS, &term) != 0)
+        fprintf (stderr, "ioctl G prob\n");
+    in_save = term;
+    term.c_lflag &= ~(ECHO | ICANON);
+    term.c_cc[VMIN] = 1;
+    term.c_cc[VTIME] = 0;
+    if (ioctl (STDIN_FILENO, TCSETS, &term) != 0)
+        fprintf (stderr, "ioctl S prob\n");
+}
+
+static void
+clear_ioctl (void)
+{
+    if (ioctl (STDIN_FILENO, TCSETS, &in_save) != 0)
+        fprintf (stderr, "ioctl S prob\n");
 }
 
 static char *
@@ -529,7 +570,8 @@ parse_line (const char *l)
                    (isalnum (l[cpt]) || 
                     l[cpt] == '.' || 
                     l[cpt] == '-' || 
-                    l[cpt] == '_'))
+                    l[cpt] == '_' ||
+                    l[cpt] == '/'))
             {
                 if (zi >= f * BUF)
                 {
@@ -863,10 +905,11 @@ read_line (const char *prompt)
         fprintf (stdout, "%s", prompt);
         fflush (stdout);
     }
+    init_ioctl ();
     while (c == -1)
     {
         memset (in, 0, 5);
-        read (0, &in, 5);
+        read (STDIN_FILENO, &in, 5);
         c = get_char (in, prompt, &ret, &cpt, &ind);
     }
     while (c != '\n' || (c == '\n' && (squote || dquote)) || nb_lines != antislashes)
@@ -897,7 +940,7 @@ read_line (const char *prompt)
             while (c == -1)
             {
                 memset (in, 0, 5);
-                read (0, &in, 5);
+                read (STDIN_FILENO, &in, 5);
                 c = get_char (in, prompt, &ret, &cpt, &ind);
             }
             continue;
@@ -922,12 +965,12 @@ read_line (const char *prompt)
             while (ctmp == -1)
             {
                 memset (tmp, 0, 5);
-                read (0, &tmp, 5);
+                read (STDIN_FILENO, &tmp, 5);
                 ctmp = get_char (tmp, prompt, &ret, &cpt, &ind);
             }
-            if (get_char (tmp, prompt, &ret, &cpt, &ind) == '\n')
+            if (ctmp == '\n')
             {
-                c = get_char (tmp, prompt, &ret, &cpt, &ind);
+                c = ctmp;
                 antislashes++;
                 fprintf (stdout, "\n> ");
                 fflush (stdout);
@@ -941,7 +984,7 @@ read_line (const char *prompt)
             while (c == -1)
             {
                 memset (in, 0, 5);
-                read (0, &in, 5);
+                read (STDIN_FILENO, &in, 5);
                 c = get_char (in, prompt, &ret, &cpt, &ind);
             }
             nb_lines++;
@@ -973,7 +1016,7 @@ replay:
         while (c == -1)
         {
             memset (in, 0, 5);
-            read (0, &in, 5);
+            read (STDIN_FILENO, &in, 5);
             c = get_char (in, prompt, &ret, &cpt, &ind);
         }
     }
@@ -989,5 +1032,6 @@ replay:
         ret = new;
     }
     ret[cpt] = '\0';
+    clear_ioctl ();
     return ret;
 }

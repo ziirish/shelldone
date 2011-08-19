@@ -39,9 +39,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-#include <sys/ioctl.h>
 #include <sys/wait.h>
-#include <termios.h>
 #include <signal.h>
 #include <setjmp.h>
 
@@ -62,7 +60,6 @@ static int val;
 
 static void shelldone_init (void);
 static void shelldone_clean (void);
-static void init_ioctl (void);
 static void handler (int signal);
 static const char *get_prompt (void);
 
@@ -73,8 +70,6 @@ shelldone_init (void)
     /* get the hostname */
     host = xmalloc (30);
     gethostname (host, 30);
-    /* set the input in raw mode */
-    init_ioctl ();
     /* load the commands list */
     init_command_list ();
     /* load the history */
@@ -99,21 +94,6 @@ shelldone_clean (void)
     l = NULL;
     clear_command_list ();
     clear_history ();
-}
-
-/* Input initialization function */
-static void
-init_ioctl (void)
-{
-    struct termios   term;
-
-    if (ioctl(0, TCGETS, &term) != 0)
-        printf("ioctl G prob\n");
-    term.c_lflag &= ~(ECHO | ICANON);
-    term.c_cc[VMIN] = 1;
-    term.c_cc[VTIME] = 0;
-    if (ioctl(0, TCSETS, &term) != 0)
-        printf("ioctl S prob\n");
 }
 
 static void
