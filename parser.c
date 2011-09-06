@@ -249,8 +249,9 @@ completion (const char *prompt, char *buf, int ind)
     }
     else if (j > 1)
     {
-        size_t s_min = 10000;
+        size_t s_min = 10000, len;
         int ind_min = -1;
+        char *t = NULL;
         fprintf (stdout, "\n");
         for (i = 0; i < j; i++)
         {
@@ -259,14 +260,22 @@ completion (const char *prompt, char *buf, int ind)
             {
                 s_min = s_tmp;
                 ind_min = i;
-            }
+                len = s_tmp;
+            } 
             fprintf (stdout, "%s\t", list[i]);
         }
-        const char *t = (s_min > xstrlen (tmp) && ind_min > -1) ?
-                            list[ind_min] :
+        for (i = 0; i < j; i++)
+        {
+            while (strncmp (list[ind_min], list[i], len) != 0 && len > 0)
+                len--;
+        }
+        t = (len > xstrlen (tmp) && ind_min > -1) ?
+                            xstrsub (list[ind_min], 0, len) :
                             NULL;
         if (t != NULL)
             ret = xstrdup (t);
+
+        xfree (t);
 
         fprintf (stdout, 
                  "\n%s%s", 

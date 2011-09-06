@@ -144,4 +144,13 @@ char *xstrjoin (char **tab, int size, const char *join);
  */
 void syntax_error (const char input[], int size, int ind);
 
+/**
+ * Extracts a substring out of the given string
+ * @param src Input string
+ * @param begin Index where to start the substring. If <0 starts from the end
+ * @param len size of the substring
+ * @return an allocated substring or NULL
+ */
+char *xstrsub (const char *src, int begin, size_t len);
+
 #endif

@@ -279,3 +279,24 @@ syntax_error (const char input[], int size, int ind)
     fprintf (stderr, "^\n");
     fprintf (stderr, "syntax error near '%c'\n", input[xmin (ind, size)]);
 }
+
+char *
+xstrsub (const char *src, int begin, size_t len)
+{
+    if (src == NULL)
+        return NULL;
+    
+    char *ret;
+    size_t s_full = xstrlen (src);
+    int ind;
+
+    ret = xmalloc ((xmin (s_full, len) + 1) * sizeof (char));
+    ind = begin < 0 ? 
+                xmax ((int) s_full + begin, 0) :
+                xmin (s_full, begin);
+
+    strncpy (ret, src+ind, xmin (s_full, len));
+    ret[xmin (s_full, len)] = '\0';
+
+    return ret;
+}
