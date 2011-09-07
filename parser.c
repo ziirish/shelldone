@@ -882,7 +882,6 @@ get_char (const char input[5],
     else
     {
         int max = *cpt + len, i = 0;
-/*        fprintf (stdout, "\nmax: %d cpt: %d len: %d\n", max, *cpt, len); */
         for (; *cpt < max; (*cpt)++)
         {
             if (*cpt >= *n * BUF)
@@ -915,20 +914,16 @@ read_line (const char *prompt)
         fflush (stdout);
     }
     init_ioctl ();
-    while (c == -1)
+    do
     {
         memset (in, 0, 5);
         read (STDIN_FILENO, &in, 5);
         c = get_char (in, prompt, &ret, &cpt, &ind);
-    }
+    } while (c == -1);
     while (c != '\n' || (c == '\n' && (squote || dquote)) || nb_lines != antislashes)
     {
         if (c == '\t')
         {
-            /*
-            fprintf (stdout, "[TAB]");
-            fflush (stdout);
-            */
             char *comp = completion (prompt, ret, cpt);
             if (comp != NULL)
             {
@@ -945,13 +940,12 @@ read_line (const char *prompt)
                 }
                 xfree (comp);
             }
-            c = -1;
-            while (c == -1)
+            do
             {
                 memset (in, 0, 5);
                 read (STDIN_FILENO, &in, 5);
                 c = get_char (in, prompt, &ret, &cpt, &ind);
-            }
+            } while (c == -1);
             continue;
         }
         else if (c != '\n')
@@ -971,12 +965,12 @@ read_line (const char *prompt)
         if (c == '\\')
         {
             char ctmp = -1;
-            while (ctmp == -1)
+            do
             {
                 memset (tmp, 0, 5);
                 read (STDIN_FILENO, &tmp, 5);
                 ctmp = get_char (tmp, prompt, &ret, &cpt, &ind);
-            }
+            } while (ctmp == -1);
             if (ctmp == '\n')
             {
                 c = ctmp;
@@ -989,13 +983,12 @@ read_line (const char *prompt)
         }
         if (c == '\n' && !(squote || dquote))
         {
-            c = -1;
-            while (c == -1)
+            do
             {
                 memset (in, 0, 5);
                 read (STDIN_FILENO, &in, 5);
                 c = get_char (in, prompt, &ret, &cpt, &ind);
-            }
+            } while (c == -1);
             nb_lines++;
             continue;
         }
@@ -1017,17 +1010,18 @@ replay:
             ret[cpt] = c;
             c = get_char (tmp, prompt, &ret, &cpt, &ind);
             cpt++;
+            fprintf (stdout, "%c", c);
+            fflush (stdout);
             goto replay;
         }
         ret[cpt] = c;
         cpt++;
-        c = -1;
-        while (c == -1)
+        do
         {
             memset (in, 0, 5);
             read (STDIN_FILENO, &in, 5);
             c = get_char (in, prompt, &ret, &cpt, &ind);
-        }
+        } while (c == -1);
     }
     fprintf (stdout, "\n");
     if (cpt >= ind * BUF)
