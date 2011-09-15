@@ -52,6 +52,7 @@
 #include "parser.h"
 #include "xutils.h"
 #include "structs.h"
+#include "caps.h"
 
 static char *history[HISTORY];
 static int last_history = 0, curr_history;
@@ -76,7 +77,7 @@ static char get_char (const char input[5],
 static int
 cmpsort (const void *p1, const void *p2)
 {
-    return xstrcmp(* (char * const *) p1, * (char * const *) p2);
+    return xstrcmp (* (char * const *) p1, * (char * const *) p2);
 }
 
 static int
@@ -413,6 +414,7 @@ parse_line (const char *l)
     unsigned int found = FALSE;
     command *curr = NULL;
     /* do we save the command in the history? */
+    /*
     for (i = 0; i < HISTORY && history[i] != NULL; i++)
     {
         if (xstrcmp (history[i], l) == 0)
@@ -421,12 +423,16 @@ parse_line (const char *l)
             break;
         }
     }
+    */
     if (!found)
     {
-        last_history = last_history < HISTORY ? last_history : 0;
-        xfree (history[last_history]);
-        history[last_history] = xstrdup (l);
-        last_history++;
+        if (last_history == 0 || xstrcmp (l, history[last_history-1]) != 0)
+        {
+            last_history = last_history < HISTORY ? last_history : 0;
+            xfree (history[last_history]);
+            history[last_history] = xstrdup (l);
+            last_history++;
+        }
     }
     i = 0;
     /* let's create the line container */
@@ -823,8 +829,10 @@ get_char (const char input[5],
         len = 5;
     if (len == 1)
     {
-        if (input[0] == 127)
+/*        fprintf (stdout, "\nc: %c d: %d\n", input[0], input[0]);*/
+        switch (input[0])
         {
+        case 127:
             if (*cpt > 0)
             {
                 (*cpt)--;
@@ -832,8 +840,15 @@ get_char (const char input[5],
                 fflush (stdout);
             }
             return -1;
+            break;
+        case CTRL_D:
+        case CTRL_L:
+        case CTRL_R:
+            return -1;
+            break;
+        default:
+            return input[0];
         }
-        return input[0];
     }
     if (len >= 3 && input[0] == 27 && input[1] == '[')
     {
