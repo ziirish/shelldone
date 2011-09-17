@@ -424,7 +424,7 @@ parse_line (const char *l)
         }
     }
     */
-    if (!found)
+    if (!found && xstrlen (l) > 0)
     {
         if (last_history == 0 || xstrcmp (l, history[last_history-1]) != 0)
         {
@@ -854,6 +854,7 @@ get_char (const char input[5],
     {
         switch (input[2])
         {
+        /* arrow UP */
         case 'A':
             if (curr_history > 0 && history[curr_history-1] != NULL)
             {
@@ -873,24 +874,28 @@ get_char (const char input[5],
                 }
             }
             break;
+        /* arrow DOWN */
         case 'B':
-            if (curr_history < last_history && history[curr_history+1] != NULL)
+            for (; *cpt > 0; (*cpt)--)
+                fprintf (stdout, "\b \b");
+            if (curr_history <= last_history && history[curr_history] != NULL)
             {
-                for (; *cpt > 0; (*cpt)--)
-                    fprintf (stdout, "\b \b");
-                fprintf (stdout, "%s", history[curr_history+1]);
-                fflush (stdout);
-                curr_history = xmin (curr_history + 1, HISTORY);
-                for (; *cpt < (int) xstrlen (history[curr_history]); (*cpt)++)
+                if (history[curr_history+1] != NULL)
                 {
-                    if (*cpt >= *n * BUF)
+                    fprintf (stdout, "%s", history[curr_history+1]);
+                    curr_history = xmin (curr_history + 1, HISTORY);
+                    for (; *cpt < (int) xstrlen (history[curr_history]); (*cpt)++)
                     {
-                        (*n)++;
-                        *ret = xrealloc (*ret, *n * BUF * sizeof (char));
+                        if (*cpt >= *n * BUF)
+                        {
+                            (*n)++;
+                            *ret = xrealloc (*ret, *n * BUF * sizeof (char));
+                        }
+                        (*ret)[*cpt] = history[curr_history][*cpt];
                     }
-                    (*ret)[*cpt] = history[curr_history][*cpt];
                 }
             }
+            fflush (stdout);
             break;
         }
     } 
