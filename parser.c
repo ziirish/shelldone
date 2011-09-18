@@ -198,92 +198,142 @@ completion (const char *prompt, char *buf, int ind)
     if (ind < 1 || save == ind)
         return NULL;
     save = ind;
-    char *tmp = xmalloc (ind + 1), *ret = NULL;
-    char **split, **list;
+    size_t s_full = ind + 1;
+    char *tmp = xmalloc (s_full * sizeof (char)), *ret = NULL;
+    char *to_split = xmalloc (s_full * sizeof (char));
+    char **split, **list = NULL;
     size_t s_split, s_in;
-    int i, j, n = 1;
+    int i, j, n = 1, curr = 0;
     unsigned int found = FALSE;
-    for (i = 0; i < ind; i++)
-        tmp[i] = buf[i];
-    tmp[i] = '\0';
-    split = xstrsplit (tmp, " ", &s_split);
+    for (i = 0, j = 0; j < ind; i++, j++)
+    {
+        to_split[i] = buf[j];
+        if (j+1 < ind &&
+            (buf[j+1] == '|' ||
+            buf[j+1] =='&' ||
+            buf[j+1] == ';'))
+        {
+            if (j > 0 && isalnum (buf[j-1]))
+            {
+                s_full++;
+                to_split = xrealloc (to_split, s_full * sizeof (char));
+                i++;
+                to_split[i] = ' ';
+            }
+        }
+        if (j > 0 &&
+            (buf[j-1] == '|' ||
+            buf[j-1] == '&' ||
+            buf[j-1] == ';'))
+        {
+            s_full++;
+            to_split = xrealloc (to_split, s_full * sizeof (char));
+            char c = to_split[i];
+            to_split[i] = ' ';
+            i++;
+            to_split[i] = c;
+        }
+        tmp[j] = buf[j];
+    }
+    tmp[j] = '\0';
+    to_split[i] = '\0';
+    split = xstrsplit (to_split, " ", &s_split);
+    xfree (to_split);
     if (s_split > 1)
     {
+        if (xstrcmp (split[s_split-2], "|") == 0 ||
+            xstrcmp (split[s_split-2], "||") == 0 ||
+            xstrcmp (split[s_split-2], "&") == 0 ||
+            xstrcmp (split[s_split-2], "&&") == 0 ||
+            xstrcmp (split[s_split-2], ";") == 0)
+        {
+            curr = s_split-1;
+            goto command;
+        }
         xfree_list (split, s_split);
         xfree (tmp);
         return NULL;
     }
-
-    list = xcalloc (n * 10, sizeof (char *));
-    s_in = xstrlen (split[0]);
-    for (i = 0, j = 0; i < nb_commands; i++)
+    else
     {
-        int ok = strncmp (split[0], command_list[i], s_in);
-        /* 
-         * our list is sorted so once a command dismatch we are sure the rest
-         * won't match
-         */
-        if (found && ok != 0)
-            break;
-        if (ok == 0)
+command:
+        list = xcalloc (n * 10, sizeof (char *));
+        s_in = xstrlen (split[curr]);
+        for (i = 0, j = 0; i < nb_commands; i++)
         {
-            if (j >= n * 10)
+            int ok = strncmp (split[curr], command_list[i], s_in);
+            /* 
+             * our list is sorted so once a command dismatch we are sure the 
+             * rest won't match
+             */
+            if (found && ok != 0)
+                break;
+            if (ok == 0)
             {
-                n++;
-                list = xrealloc (list, n * 10 * sizeof (char *));
+                if (j >= n * 10)
+                {
+                    n++;
+                    list = xrealloc (list, n * 10 * sizeof (char *));
+                }
+                list[j] = command_list[i];
+                j++;
+                found = TRUE;
             }
-            list[j] = command_list[i];
-            j++;
-            found = TRUE;
         }
-    }
-    if (j == 1)
-    {
-        size_t s = xstrlen (list[0]);
-        ret = xmalloc (s + 2);
-        snprintf (ret, s+2, "%s ", list[0]);
-        ret[s+1] = '\0';
-        for (i = 0; i < (int) s_in; i++)
-            fprintf (stdout, "\b");
-        fprintf (stdout, "%s", ret);
-        fflush (stdout);
-    }
-    else if (j > 1)
-    {
-        size_t s_min = 10000, len;
-        int ind_min = -1;
-        char *t = NULL;
-        fprintf (stdout, "\n");
-        for (i = 0; i < j; i++)
+        if (j == 1)
         {
-            size_t s_tmp = xstrlen (list[i]);
-            if (s_tmp < s_min)
+            size_t s = xstrlen (list[0]);
+            ret = xmalloc (s + 2);
+            snprintf (ret, s+2, "%s ", list[0]);
+            ret[s+1] = '\0';
+            for (i = 0; i < (int) s_in; i++)
+                fprintf (stdout, "\b");
+            fprintf (stdout, "%s", ret);
+            fflush (stdout);
+        }
+        else if (j > 1)
+        {
+            size_t s_min = 10000, len = 0;
+            int ind_min = -1;
+            char *t = NULL;
+            fprintf (stdout, "\n");
+            for (i = 0; i < j; i++)
             {
-                s_min = s_tmp;
-                ind_min = i;
-                len = s_tmp;
-            } 
-            fprintf (stdout, "%s\t", list[i]);
-        }
-        for (i = 0; i < j; i++)
-        {
-            while (strncmp (list[ind_min], list[i], len) != 0 && len > 0)
-                len--;
-        }
-        t = (len > xstrlen (tmp) && ind_min > -1) ?
-                            xstrsub (list[ind_min], 0, len) :
+                size_t s_tmp = xstrlen (list[i]);
+                if (s_tmp < s_min)
+                {
+                    s_min = s_tmp;
+                    ind_min = i;
+                    len = s_tmp;
+                } 
+                fprintf (stdout, "%s\t", list[i]);
+            }
+            for (i = 0; i < j; i++)
+            {
+                while (strncmp (list[ind_min], list[i], len) != 0 && len > 0)
+                    len--;
+            }
+            t = (len > xstrlen (split[curr]) && ind_min > -1) ?
+                            xstrsub (list[ind_min], 
+                                     xstrlen (split[curr]), 
+                                     len - xstrlen (split[curr])) :
                             NULL;
-        if (t != NULL)
-            ret = xstrdup (t);
+            if (t != NULL)
+            {
+                size_t sum = xstrlen (tmp) + xstrlen (t) + 1;
+                ret = xmalloc (sum * sizeof (char));
+                snprintf (ret, sum, "%s%s", tmp, t);
+            }
 
-        xfree (t);
+            xfree (t);
 
-        fprintf (stdout, 
-                 "\n%s%s", 
-                 prompt,
-                 ret != NULL ? ret : tmp);
-        fflush (stdout);
+            fprintf (stdout, 
+                     "\n%s%s", 
+                     prompt,
+                     ret != NULL ? ret : tmp);
+            fflush (stdout);
 
+        }
     }
     xfree (list);
     xfree_list (split, s_split);
@@ -840,12 +890,10 @@ get_char (const char input[5],
                 fflush (stdout);
             }
             return -1;
-            break;
         case CTRL_D:
         case CTRL_L:
         case CTRL_R:
             return -1;
-            break;
         default:
             return input[0];
         }
@@ -878,7 +926,7 @@ get_char (const char input[5],
         case 'B':
             for (; *cpt > 0; (*cpt)--)
                 fprintf (stdout, "\b \b");
-            if (curr_history <= last_history && history[curr_history] != NULL)
+            if (curr_history < last_history && history[curr_history+1] != NULL)
             {
                 if (history[curr_history+1] != NULL)
                 {
@@ -894,6 +942,10 @@ get_char (const char input[5],
                         (*ret)[*cpt] = history[curr_history][*cpt];
                     }
                 }
+            }
+            else
+            {
+                curr_history = xmin (curr_history + 1, last_history);
             }
             fflush (stdout);
             break;
