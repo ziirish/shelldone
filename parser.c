@@ -205,6 +205,7 @@ completion (const char *prompt, char *buf, int ind)
     size_t s_split, s_in;
     int i, j, n = 1, curr = 0;
     unsigned int found = FALSE;
+    /* First: we prepare two strings to parse */
     for (i = 0, j = 0; j < ind; i++, j++)
     {
         to_split[i] = buf[j];
@@ -213,7 +214,8 @@ completion (const char *prompt, char *buf, int ind)
             buf[j+1] =='&' ||
             buf[j+1] == ';'))
         {
-            if (j > 0 && isalnum (buf[j-1]))
+            if (j > 0 && isalnum (buf[j-1]) && 
+                buf[j] != '|' && buf[j] != '&' && buf[j] != ';')
             {
                 s_full++;
                 to_split = xrealloc (to_split, s_full * sizeof (char));
@@ -226,39 +228,198 @@ completion (const char *prompt, char *buf, int ind)
             buf[j-1] == '&' ||
             buf[j-1] == ';'))
         {
-            s_full++;
-            to_split = xrealloc (to_split, s_full * sizeof (char));
-            char c = to_split[i];
-            to_split[i] = ' ';
-            i++;
-            to_split[i] = c;
+            if (buf[j] != '|' && buf[j] != '&' && buf[j] != ';')
+            {
+                s_full++;
+                to_split = xrealloc (to_split, s_full * sizeof (char));
+                char c = to_split[i];
+                to_split[i] = ' ';
+                i++;
+                to_split[i] = c;
+            }
         }
         tmp[j] = buf[j];
     }
     tmp[j] = '\0';
+    /* to_split is split ready meaning each commands are separated by spaces */
     to_split[i] = '\0';
+/*    fprintf (stdout, "\ntmp: %s\nto_split: %s\n", tmp, to_split); */
     split = xstrsplit (to_split, " ", &s_split);
     xfree (to_split);
-    if (s_split > 1)
+    if (s_split > 1 || (
+        (j > 2 && tmp[j-1] == ' ' && tmp[j-2] != '\\') ||
+        (j > 1 && tmp[j-1] == ' ')))
     {
-        if (xstrcmp (split[s_split-2], "|") == 0 ||
+        char **files_list = NULL;
+        curr = s_split-1;
+        /* if we have more than one word and the previous is a separator */
+        if (s_split > 1 && (
+            xstrcmp (split[s_split-2], "|") == 0 ||
             xstrcmp (split[s_split-2], "||") == 0 ||
             xstrcmp (split[s_split-2], "&") == 0 ||
             xstrcmp (split[s_split-2], "&&") == 0 ||
-            xstrcmp (split[s_split-2], ";") == 0)
+            xstrcmp (split[s_split-2], ";") == 0))
         {
-            curr = s_split-1;
             goto command;
         }
-        xfree_list (split, s_split);
-        xfree (tmp);
-        return NULL;
+        /* if we didn't type any character after a space, list all files */
+        if (s_split == 1 || (
+            (j > 2 && tmp[j-1] == ' ' && tmp[j-2] != '\\') &&
+            (j > 1 && tmp[j-1] == ' ')))
+        {
+            struct dirent **files = NULL;
+            int nbfiles = scandir (".", &files, NULL, alphasort);
+            if (nbfiles > 0)
+            {
+                fprintf (stdout, "\n");
+                for (i = 0; i < nbfiles; i++)
+                {
+                    fprintf (stdout, "%s\t", files[i]->d_name);
+                    xfree (files[i]);
+                }
+                xfree (files);
+                fprintf (stdout, "\n%s%s", prompt, tmp);
+                fflush (stdout);
+            }
+        }
+        /* TODO: remove \ from input + add \ to output + multi-completion */
+        else
+        {
+            char **path;
+            char *clean_path = NULL;
+            size_t s_path;
+            struct dirent **files = NULL;
+            int nbfiles;
+            unsigned int flag;
+            path = xstrsplit (split[s_split-1], "/", &s_path);
+            flag = s_path > 0;
+            if (s_path > 1 || ( s_path == 1 && ( 
+                xstrcmp (path[0], ".") == 0 || 
+                xstrcmp (path[0], "..") == 0)))
+            {
+                int size = 
+                    split[s_split-1][xstrlen(split[s_split-1])-1] == '/' ?
+                        s_path :
+                        s_path-1;
+                flag = size != (int) s_path && flag;
+                clean_path = xstrjoin (path, size, "/");
+            }
+            else if (*(split[s_split-1]) == '/')
+            {
+                if (split[s_split-1][xstrlen(split[s_split-1])-1] == '/')
+                {
+                    flag = FALSE;
+                    clean_path = xstrdup (split[s_split-1]);
+                }
+                else
+                    clean_path = xstrdup ("/");
+            }
+            if (*(split[s_split-1]) != '/' && clean_path != NULL)
+                clean_path++;
+//            fprintf (stdout, "\nD: %s | %d %d\n", clean_path, flag, s_path);
+            nbfiles = scandir (clean_path != NULL ? clean_path : ".",
+                               &files,
+                               NULL,
+                               alphasort);
+            if (*(split[s_split-1]) != '/' && clean_path != NULL)
+                clean_path--;
+            if (nbfiles > 0)
+            {
+                size_t s_tmp = 0;
+                if (flag)
+                {
+                    s_tmp = xstrlen (path[s_path-1]);
+                    files_list = xcalloc (n * 10, sizeof (char *));
+                }
+                else
+                    fprintf (stdout, "\n");
+                for (i = 0, j = 0; i < nbfiles; i++)
+                {
+                    if (flag)
+                    {
+                        int ok = strncmp (path[s_path-1], 
+                                          files[i]->d_name, 
+                                          s_tmp);
+                        if (found && !ok)
+                            break;
+                        if (ok == 0)
+                        {
+                            if (j >= n * 10)
+                            {
+                                n++;
+                                files_list = xrealloc (files_list, 
+                                                   n * 10 * sizeof (char *));
+                            }
+                            files_list[j] = xstrdup (files[i]->d_name);
+                            j++;
+                            found = TRUE;
+                        }
+                    }
+                    else
+                    {
+                        if (!S_ISREG(DTTOIF(files[i]->d_type)))
+                            fprintf (stdout, "%s/\t", files[i]->d_name);
+                        else
+                            fprintf (stdout, "%s\t", files[i]->d_name);
+                    }
+                    xfree (files[i]);
+                }
+                xfree (files);
+                if (!flag)
+                {
+                    fprintf (stdout, "\n%s%s", prompt, tmp);
+                    fflush (stdout);
+                }
+                if (j == 1 && found)
+                {
+                    size_t s = xstrlen (files_list[0]);
+                    char *f;
+                    struct stat sb;
+                    unsigned int space = FALSE;
+                    char *t = (s > xstrlen (path[s_path-1])) ?
+                            xstrsub (files_list[0],      
+                                     xstrlen (path[s_path-1]),
+                                     s - xstrlen (path[s_path-1])) :
+                            NULL;    
+                    if (clean_path != NULL)
+                    {
+                        size_t full = s + xstrlen (clean_path) + 2;
+                        f = xmalloc (full * sizeof (char));
+                        snprintf (f, full, "%s/%s", clean_path, files_list[0]);
+                    }
+                    else
+                        f = xstrdup (files_list[0]);
+//                    fprintf (stdout, "\nD: %s\n", f);
+                    stat (f, &sb);
+                    xfree (f);
+                    space = !S_ISDIR(sb.st_mode);
+                    if (t != NULL)
+                    {  
+                        size_t sum = xstrlen (tmp) + xstrlen (t) + 2;
+                        ret = xmalloc (sum * sizeof (char));
+                        snprintf (ret, sum, "%s%s%c", tmp, t, space ?
+                                                                ' ' : '/');
+                    }
+                    xfree (t);
+
+                    for (i = 0; i < (int) s_tmp; i++)
+                        fprintf (stdout, "\b");
+                    fprintf (stdout, "%s%c", files_list[0], space ? ' ' : '/');
+                    fflush (stdout);
+                }
+                xfree_list (files_list, j);
+            }
+            xfree (clean_path);
+            xfree_list (path, s_path);
+        }
     }
     else
     {
 command:
         list = xcalloc (n * 10, sizeof (char *));
         s_in = xstrlen (split[curr]);
+        n = 1;
+        found = FALSE;
         for (i = 0, j = 0; i < nb_commands; i++)
         {
             int ok = strncmp (split[curr], command_list[i], s_in);
@@ -283,12 +444,22 @@ command:
         if (j == 1)
         {
             size_t s = xstrlen (list[0]);
-            ret = xmalloc (s + 2);
-            snprintf (ret, s+2, "%s ", list[0]);
-            ret[s+1] = '\0';
+            char *t = (s > xstrlen (split[curr])) ?
+                            xstrsub (list[0], 
+                                     xstrlen (split[curr]), 
+                                     s - xstrlen (split[curr])) :
+                            NULL;
+            if (t != NULL)
+            {    
+                size_t sum = xstrlen (tmp) + xstrlen (t) + 2; 
+                ret = xmalloc (sum * sizeof (char));
+                snprintf (ret, sum, "%s%s ", tmp, t);
+            }    
+            xfree (t); 
+
             for (i = 0; i < (int) s_in; i++)
                 fprintf (stdout, "\b");
-            fprintf (stdout, "%s", ret);
+            fprintf (stdout, "%s ", list[0]);
             fflush (stdout);
         }
         else if (j > 1)
@@ -339,7 +510,10 @@ command:
     xfree_list (split, s_split);
     xfree (tmp);
     if (ret != NULL)
-        save = xstrlen (ret);
+    {
+        size_t len = xstrlen (ret);
+        save = ret[len-1] == ' ' || ret[len-1] == '/' ? len-1 : len;
+    }
     return ret;
 }
 
@@ -882,6 +1056,7 @@ get_char (const char input[5],
 /*        fprintf (stdout, "\nc: %c d: %d\n", input[0], input[0]);*/
         switch (input[0])
         {
+        /* backspace */
         case 127:
             if (*cpt > 0)
             {
