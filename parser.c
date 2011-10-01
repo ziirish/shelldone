@@ -47,12 +47,15 @@
 #include <ctype.h>
 #include <errno.h>
 #include <termios.h>
+#include <fnmatch.h>
 
 #include "command.h"
 #include "parser.h"
 #include "xutils.h"
 #include "structs.h"
 #include "caps.h"
+
+#define reset_completion() completion (NULL, NULL, 0)
 
 static char *history[HISTORY];
 static int last_history = 0, curr_history;
@@ -195,6 +198,11 @@ completion (const char *prompt, char *buf, int ind)
 {
     /* in order to avoid multiple [TAB] hits we store the last index */
     static int save = 0;
+    if (prompt == NULL || buf == NULL)
+    {
+        save = ind;
+        return NULL;
+    }
     if (ind < 1 || save == ind)
         return NULL;
     save = ind;
@@ -314,6 +322,38 @@ completion (const char *prompt, char *buf, int ind)
                 else
                     clean_path = xstrdup ("/");
             }
+            if (clean_path != NULL)
+            {
+//                fprintf (stdout, "\nD: begin %s\n", split[curr]);
+                char *red;
+                red = strrchr (split[curr], '<');
+                if (red != NULL)
+                {
+//                    fprintf (stdout, "\nD: input\n");
+                    xfree (clean_path);
+                    char *sl = strrchr (split[curr], '/');
+                    clean_path = xstrsub (red, 
+                                          red-split[curr]+1,
+                                          sl ? 
+                                            sl-split[curr] :
+                                            (int) xstrlen (split[curr]));
+
+//                    fprintf (stdout, "\nD: input %s\n", clean_path);
+                }
+                else if ((red = strrchr (split[curr], '>')) != NULL)
+                {
+//                    fprintf (stdout, "\nD: output\n");
+                    xfree (clean_path);
+                    char *sl = strrchr (split[curr], '/');
+                    clean_path = xstrsub (red, 
+                                          red-split[curr]+1,
+                                          sl ? 
+                                            sl-split[curr] :
+                                            (int) xstrlen (split[curr]));
+
+                    fprintf (stdout, "\nD: output %s\n", clean_path);
+                }
+            }
             if (*(split[s_split-1]) != '/' && clean_path != NULL)
                 clean_path++;
 //            fprintf (stdout, "\nD: %s | %d %d\n", clean_path, flag, s_path);
@@ -422,7 +462,9 @@ command:
         found = FALSE;
         for (i = 0, j = 0; i < nb_commands; i++)
         {
-            int ok = strncmp (split[curr], command_list[i], s_in);
+            int ok = fnmatch (split[curr], command_list[i], 0);
+            if (ok == FNM_NOMATCH)
+                ok = strncmp (split[curr], command_list[i], s_in);
             /* 
              * our list is sorted so once a command dismatch we are sure the 
              * rest won't match
@@ -1063,6 +1105,7 @@ get_char (const char input[5],
                 (*cpt)--;
                 fprintf (stdout, "\b \b");
                 fflush (stdout);
+                reset_completion ();
             }
             return -1;
         case CTRL_D:
@@ -1153,6 +1196,7 @@ read_line (const char *prompt)
         squote = 0, dquote = 0;
     char in[5], tmp[5], c = -1;
     curr_history = last_history;
+    reset_completion ();
     if (ret == NULL)
         return NULL;
     if (prompt != NULL && xstrlen (prompt) > 0)
@@ -1167,7 +1211,9 @@ read_line (const char *prompt)
         read (STDIN_FILENO, &in, 5);
         c = get_char (in, prompt, &ret, &cpt, &ind);
     } while (c == -1);
-    while (c != '\n' || (c == '\n' && (squote || dquote)) || nb_lines != antislashes)
+    while (c != '\n' || 
+           (c == '\n' && (squote || dquote)) || 
+           nb_lines != antislashes)
     {
         if (c == '\t')
         {

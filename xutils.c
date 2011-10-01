@@ -281,22 +281,23 @@ syntax_error (const char input[], int size, int ind)
 }
 
 char *
-xstrsub (const char *src, int begin, size_t len)
+xstrsub (const char *src, int begin, int len)
 {
     if (src == NULL)
         return NULL;
     
     char *ret;
     size_t s_full = xstrlen (src);
+    int l = len == -1 ? (int) s_full : len;
     int ind;
 
-    ret = xmalloc ((xmin (s_full, len) + 1) * sizeof (char));
+    ret = xmalloc ((xmin (s_full, l) + 1) * sizeof (char));
     ind = begin < 0 ? 
                 xmax ((int) s_full + begin, 0) :
                 xmin (s_full, begin);
 
-    strncpy (ret, src+ind, xmin (s_full, len));
-    ret[xmin (s_full, len)] = '\0';
+    strncpy (ret, src+ind, xmin (s_full, l));
+    ret[xmin (s_full, l)] = '\0';
 
     return ret;
 }

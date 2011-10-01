@@ -151,6 +151,6 @@ void syntax_error (const char input[], int size, int ind);
  * @param len size of the substring
  * @return an allocated substring or NULL
  */
-char *xstrsub (const char *src, int begin, size_t len);
+char *xstrsub (const char *src, int begin, int len);
 
 #endif
