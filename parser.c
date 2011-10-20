@@ -211,13 +211,21 @@ completion (const char *prompt, char *buf, int ind)
     char *to_split = xmalloc (s_full * sizeof (char));
     char **split, **list = NULL;
     size_t s_split, s_in;
-    int i, j, n = 1, curr = 0;
-    unsigned int found = FALSE;
+    int i, j, k, n = 1, curr = 0;
+    unsigned int found = FALSE, squote = FALSE, dquote = FALSE, protected = FALSE;
     /* First: we prepare two strings to parse */
-    for (i = 0, j = 0; j < ind; i++, j++)
+    for (i = 0, j = 0, k = 0; j < ind; i++, j++, k++)
     {
+        if (buf[j] == '\'' && !dquote)
+            squote = !squote;
+        if (buf[j] == '"' && !squote)
+            dquote = !dquote;
+        if (buf[j] == '\\' && !protected)
+            protected = TRUE;
+        else
+            protected = FALSE;
         to_split[i] = buf[j];
-        if (j+1 < ind &&
+        if (j+1 < ind && !(dquote || squote) && !protected &&
             (buf[j+1] == '|' ||
             buf[j+1] =='&' ||
             buf[j+1] == ';'))
@@ -231,7 +239,7 @@ completion (const char *prompt, char *buf, int ind)
                 to_split[i] = ' ';
             }
         }
-        if (j > 0 &&
+        if (j > 0 && !(dquote || squote) && !protected &&
             (buf[j-1] == '|' ||
             buf[j-1] == '&' ||
             buf[j-1] == ';'))
@@ -246,12 +254,11 @@ completion (const char *prompt, char *buf, int ind)
                 to_split[i] = c;
             }
         }
-        tmp[j] = buf[j];
+        tmp[k] = buf[j];
     }
-    tmp[j] = '\0';
+    tmp[k] = '\0';
     /* to_split is split ready meaning each commands are separated by spaces */
     to_split[i] = '\0';
-/*    fprintf (stdout, "\ntmp: %s\nto_split: %s\n", tmp, to_split); */
     split = xstrsplit (to_split, " ", &s_split);
     xfree (to_split);
     if (s_split > 1 || (
@@ -293,14 +300,16 @@ completion (const char *prompt, char *buf, int ind)
         /* TODO: remove \ from input + add \ to output + multi-completion */
         else
         {
+filepath:
+{
             char **path;
             char *clean_path = NULL;
             size_t s_path;
             struct dirent **files = NULL;
             int nbfiles;
-            unsigned int flag;
+            unsigned int multifiles, redirect;
             path = xstrsplit (split[s_split-1], "/", &s_path);
-            flag = s_path > 0;
+            multifiles = s_path > 0;
             if (s_path > 1 || ( s_path == 1 && ( 
                 xstrcmp (path[0], ".") == 0 || 
                 xstrcmp (path[0], "..") == 0)))
@@ -309,27 +318,27 @@ completion (const char *prompt, char *buf, int ind)
                     split[s_split-1][xstrlen(split[s_split-1])-1] == '/' ?
                         s_path :
                         s_path-1;
-                flag = size != (int) s_path && flag;
+                multifiles = size != (int) s_path && multifiles;
                 clean_path = xstrjoin (path, size, "/");
             }
             else if (*(split[s_split-1]) == '/')
             {
                 if (split[s_split-1][xstrlen(split[s_split-1])-1] == '/')
                 {
-                    flag = FALSE;
+                    multifiles = FALSE;
                     clean_path = xstrdup (split[s_split-1]);
                 }
                 else
                     clean_path = xstrdup ("/");
             }
+            redirect = FALSE;
             if (clean_path != NULL)
             {
-//                fprintf (stdout, "\nD: begin %s\n", split[curr]);
                 char *red;
                 red = strrchr (split[curr], '<');
                 if (red != NULL)
                 {
-//                    fprintf (stdout, "\nD: input\n");
+                    redirect = TRUE;
                     xfree (clean_path);
                     char *sl = strrchr (split[curr], '/');
                     clean_path = xstrsub (red, 
@@ -338,11 +347,10 @@ completion (const char *prompt, char *buf, int ind)
                                             sl-split[curr] :
                                             (int) xstrlen (split[curr]));
 
-//                    fprintf (stdout, "\nD: input %s\n", clean_path);
                 }
                 else if ((red = strrchr (split[curr], '>')) != NULL)
                 {
-//                    fprintf (stdout, "\nD: output\n");
+                    redirect =TRUE;
                     xfree (clean_path);
                     char *sl = strrchr (split[curr], '/');
                     clean_path = xstrsub (red, 
@@ -351,22 +359,21 @@ completion (const char *prompt, char *buf, int ind)
                                             sl-split[curr] :
                                             (int) xstrlen (split[curr]));
 
-                    fprintf (stdout, "\nD: output %s\n", clean_path);
                 }
             }
-            if (*(split[s_split-1]) != '/' && clean_path != NULL)
+            /* xstrjoin gives us a string starting with a '/' in every cases */
+            if (*(split[s_split-1]) != '/' && clean_path != NULL && !redirect)
                 clean_path++;
-//            fprintf (stdout, "\nD: %s | %d %d\n", clean_path, flag, s_path);
             nbfiles = scandir (clean_path != NULL ? clean_path : ".",
                                &files,
                                NULL,
                                alphasort);
-            if (*(split[s_split-1]) != '/' && clean_path != NULL)
+            if (*(split[s_split-1]) != '/' && clean_path != NULL && !redirect)
                 clean_path--;
             if (nbfiles > 0)
             {
                 size_t s_tmp = 0;
-                if (flag)
+                if (multifiles)
                 {
                     s_tmp = xstrlen (path[s_path-1]);
                     files_list = xcalloc (n * 10, sizeof (char *));
@@ -375,13 +382,14 @@ completion (const char *prompt, char *buf, int ind)
                     fprintf (stdout, "\n");
                 for (i = 0, j = 0; i < nbfiles; i++)
                 {
-                    if (flag)
+                    if (multifiles)
                     {
                         int ok = strncmp (path[s_path-1], 
                                           files[i]->d_name, 
                                           s_tmp);
-                        if (found && !ok)
-                            break;
+                        /* FIXME: our list should be sorted... */
+//                        if (found && !ok)
+//                            break;
                         if (ok == 0)
                         {
                             if (j >= n * 10)
@@ -405,12 +413,12 @@ completion (const char *prompt, char *buf, int ind)
                     xfree (files[i]);
                 }
                 xfree (files);
-                if (!flag)
+                if (!multifiles)
                 {
                     fprintf (stdout, "\n%s%s", prompt, tmp);
                     fflush (stdout);
                 }
-                if (j == 1 && found)
+                if (j == 1)
                 {
                     size_t s = xstrlen (files_list[0]);
                     char *f;
@@ -429,7 +437,6 @@ completion (const char *prompt, char *buf, int ind)
                     }
                     else
                         f = xstrdup (files_list[0]);
-//                    fprintf (stdout, "\nD: %s\n", f);
                     stat (f, &sb);
                     xfree (f);
                     space = !S_ISDIR(sb.st_mode);
@@ -447,11 +454,56 @@ completion (const char *prompt, char *buf, int ind)
                     fprintf (stdout, "%s%c", files_list[0], space ? ' ' : '/');
                     fflush (stdout);
                 }
+                else if (j > 1)
+                {
+                    size_t s_min = 10000, len = 0;
+                    int ind_min = -1;
+                    char *t = NULL;
+                    fprintf (stdout, "\n");
+                    for (i = 0; i < j; i++)
+                    {
+                        size_t s_tmp = xstrlen (files_list[i]);
+                        if (s_tmp < s_min)
+                        {
+                            s_min = s_tmp;
+                            ind_min = i;
+                            len = s_tmp;
+                        }
+                        fprintf (stdout, "%s\t", files_list[i]);
+                    }
+                    for (i = 0; i < j; i++)
+                    {
+                        while (strncmp (files_list[ind_min],
+                                        files_list[i],
+                                        len) != 0 && len > 0)
+                            len--;
+                    }
+                    t = (len > xstrlen (path[s_path-1]) && ind_min > -1) ?
+                                    xstrsub (files_list[ind_min],
+                                             xstrlen (path[s_path-1]),
+                                             len - xstrlen (path[s_path-1])) :
+                                    NULL;
+                    if (t != NULL)
+                    {
+                        size_t sum = xstrlen (tmp) + xstrlen (t) + 1;
+                        ret = xmalloc (sum * sizeof (char));
+                        snprintf (ret, sum, "%s%s", tmp, t);
+                    }
+
+                    xfree (t);
+
+                    fprintf (stdout,
+                             "\n%s%s",
+                             prompt,
+                             ret != NULL ? ret : tmp);
+                    fflush (stdout);
+                }
                 xfree_list (files_list, j);
             }
             xfree (clean_path);
             xfree_list (path, s_path);
         }
+}
     }
     else
     {
@@ -547,6 +599,8 @@ command:
             fflush (stdout);
 
         }
+        else
+            goto filepath;
     }
     xfree (list);
     xfree_list (split, s_split);
