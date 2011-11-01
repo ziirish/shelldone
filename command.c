@@ -77,6 +77,7 @@ new_cmd (void)
     {
         ret->cmd = NULL;
         ret->argv = NULL;
+        ret->protected = NULL;
         ret->argc = 0;
         ret->next = NULL;
         ret->prev = NULL;
@@ -100,6 +101,7 @@ free_cmd (command *ptr)
             xfree (ptr->argv[cpt]);
         xfree (ptr->argv);
         xfree (ptr->cmd);
+        xfree (ptr->protected);
         xfree (ptr);
     }
 }
@@ -223,7 +225,8 @@ run_command (command *ptr)
                 ptr->cmd[len - 2] == 's' && 
                 ptr->cmd[len - 3] == '.')) 
             {
-                fprintf (stdout, "BAZINGA! I iz in ur term blocking ur Shell!\n");
+                fprintf (stdout, 
+                         "BAZINGA! I iz in ur term blocking ur Shell!\n");
                 ptr->builtin = TRUE;
                 return 0;
             }
@@ -286,7 +289,8 @@ run_command (command *ptr)
                     argv[0] = ptr->cmd;
                     for (i = 1; i - 1 < ptr->argc; i++)
                     {
-                        if (xstrcmp ("$?", ptr->argv[i-1]) == 0)
+                        if (xstrcmp ("$?", ptr->argv[i-1]) == 0 && 
+                            ptr->protected[i-1] != SINGLE_QUOTE)
                         {
                             char buf[128];
                             snprintf (buf, 128, "%d", ret_code);

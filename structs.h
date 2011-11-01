@@ -59,11 +59,20 @@ typedef enum {
     END
 } CmdFlag;
 
+/* Different types of arguments protection (ie. double quote, single quote... */
+typedef enum {
+    NONE = 0,
+    DOUBLE_QUOTE,
+    SINGLE_QUOTE
+} Protection;
+
 struct _command_line {
     /* command */
     char *cmd;
     /* arguments */
     char **argv;
+    /* argument protection */
+    Protection *protected;
     /* nb arguments */
     int argc;
     /* cmd flag */

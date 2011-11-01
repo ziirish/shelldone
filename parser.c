@@ -76,6 +76,18 @@ static char get_char (const char input[5],
                       char **ret,
                       int *cpt,
                       int *n);
+static char *parse_filepath (char **split,
+                             size_t s_split,
+                             char *tmp,
+                             int curr,
+                             const char *prompt,
+                             int *cpt);
+static char *parse_exe (char **split,
+                        size_t s_split,
+                        char *tmp,
+                        int curr,
+                        const char *prompt,
+                        int *cpt);
 
 static int
 cmpsort (const void *p1, const void *p2)
@@ -208,7 +220,7 @@ parse_filepath (char **split,
     size_t s_path;
     struct dirent **files = NULL;
     int nbfiles, i, j, n = 1;
-    unsigned int multifiles, redirect, found = FALSE;
+    unsigned int multifiles, redirect/*, found = FALSE*/;
     path = xstrsplit (split[s_split-1], "/", &s_path);
     multifiles = s_path > 0;
     if (s_path > 1 || ( s_path == 1 && ( 
@@ -304,7 +316,7 @@ parse_filepath (char **split,
                     }
                     files_list[j] = xstrdup (files[i]->d_name);
                     j++;
-                    found = TRUE;
+                    /*found = TRUE;*/
                 }
             }
             else
@@ -761,11 +773,15 @@ copy_cmd (const command *src)
     if (src->argc > 0)
     {
         ret->argv = xcalloc (src->argc, sizeof (char *));
-        if (ret->argv != NULL)
+        ret->protected = xcalloc (src->argc, sizeof (Protection));
+        if (ret->argv != NULL && ret->protected != NULL)
         {
             int i;
             for (i = 0; i < src->argc; i++)
+            {
                 ret->argv[i] = xstrdup (src->argv[i]);
+                ret->protected[i] = src->protected[i];
+            }
             ret->argc = src->argc;
         }
         else
@@ -777,6 +793,7 @@ copy_cmd (const command *src)
     else
     {
         ret->argv = NULL;
+        ret->protected = NULL;
     }
     return ret;
 }
@@ -790,7 +807,7 @@ dump_cmd (command *ptr)
         fprintf (stdout, "cmd: %s\n", ptr->cmd);
         fprintf (stdout, "argc: %d\n", ptr->argc);
         for (i = 0; i < ptr->argc; i++)
-            fprintf (stdout, "argv[%d]: %s\n", i, ptr->argv[i]);
+            fprintf (stdout, "argv[%d]: %s (%d)\n", i, ptr->argv[i], ptr->protected[i]);
     }
 }
 
@@ -1145,7 +1162,8 @@ parse_line (const char *l)
             if (curr->argc == 0 && !arg)
             {
                 curr->argv = xcalloc (factor * ARGC, sizeof (char *));
-                if (curr->argv == NULL)
+                curr->protected = xcalloc (factor * ARGC, sizeof (Protection));
+                if (curr->argv == NULL || curr->protected == NULL)
                 {
                     free_cmd (curr);
                     free_line (ret);
@@ -1158,6 +1176,8 @@ parse_line (const char *l)
                 factor++;
                 char **tmp = xrealloc (curr->argv, 
                                        factor * ARGC * sizeof (char *));
+                Protection *ptmp = xrealloc (curr->protected,
+                                             factor*ARGC * sizeof(Protection));
                 if (tmp == NULL)
                 {
                     free_cmd (curr);
@@ -1165,6 +1185,13 @@ parse_line (const char *l)
                     return NULL;
                 }
                 curr->argv = tmp;
+                if (ptmp == NULL)
+                {
+                    free_cmd (curr);
+                    free_line (ret);
+                    return NULL;
+                }
+                curr->protected = ptmp;
             }
             if (i == 0)
             {
@@ -1190,6 +1217,12 @@ parse_line (const char *l)
                 curr->argv[curr->argc] = tmp;
             }
             curr->argv[curr->argc][i] = l[cpt];
+            if (dquote)
+                curr->protected[curr->argc] = DOUBLE_QUOTE;
+            else if (squote)
+                curr->protected[curr->argc] = SINGLE_QUOTE;
+            else
+                curr->protected[curr->argc] = NONE;
         }
         i++;
         cpt++;

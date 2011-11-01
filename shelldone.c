@@ -178,8 +178,9 @@ main (int argc, char **argv)
                 break;
 /*                exit (0); */
             l = parse_line (li);
-/*        dump_line (l); */
+/*            dump_line (l); */
             run_line (l);
+
 /*            exit (0); */
 /*        } */
 /*        signal (SIGINT, handler); */
