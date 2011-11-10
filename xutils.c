@@ -43,13 +43,13 @@
 
 #include "xutils.h"
 
-inline int
+int
 xmin (int a, int b)
 {
     return a < b ? a : b;
 }
 
-inline int
+int
 xmax (int a, int b)
 {
     return a > b ? a : b;

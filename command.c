@@ -56,7 +56,7 @@ static const builtin calls[] = {{"cd", (cmd_builtin) sd_cd},
 /*                              {"echo", (cmd_builtin) sd_echo}, */
                                 {NULL, NULL}};
 
-int ret_code = 0;
+extern int ret_code;
 static char *lastcmd = NULL;
 
 static void
@@ -315,7 +315,7 @@ void
 run_line (input_line *ptr)
 {
     CmdFlag flag;
-    int ret;
+    int ret = 0;
     if (ptr != NULL)
     {
         command *cmd = ptr->head;
@@ -447,4 +447,5 @@ run_line (input_line *ptr)
             cmd = cmd->next;
         }
     }
+    exit (ret_code);
 }

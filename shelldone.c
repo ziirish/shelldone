@@ -55,13 +55,15 @@ static char *host = NULL;
 static const char *fpwd = NULL;
 static input_line *l = NULL;
 static char *li = NULL;
-static jmp_buf env;
-static int val;
+/* static jmp_buf env; */
+/* static int val; */
 
 static void shelldone_init (void);
 static void shelldone_clean (void);
 static void handler (int signal);
 static const char *get_prompt (void);
+
+int ret_code;
 
 /* Initialization function */
 static void
@@ -77,7 +79,8 @@ shelldone_init (void)
     /* register the cleanup function */
     atexit (shelldone_clean);
     /* ignoring SIGINT */
-    signal (SIGINT, handler);
+    signal (SIGINT, SIG_IGN);
+    /* signal (SIGINT, handler); */
 }
 
 /* Cleanup function */
@@ -99,11 +102,12 @@ shelldone_clean (void)
 static void
 handler (int sig)
 {
-    signal (SIGINT, handler);
+    (void) sig;
+/*    signal (SIGINT, handler); */
     fprintf (stdout, "\n");
-    longjmp (env, !val);
-    shelldone_clean ();
-    fprintf (stderr, "\nTerminated with signal: %s\n", strsignal (sig));
+/*    longjmp (env, !val); */
+/*    shelldone_clean (); */
+/*    fprintf (stderr, "\nTerminated with signal: %s\n", strsignal (sig)); */
     exit (0);
 }
 
@@ -163,28 +167,33 @@ main (int argc, char **argv)
 
     while (1)
     {
-/*        pid_t pid = fork (); */
-/*        if (pid == 0) */
-/*        { */
-/*            signal (SIGINT, handler); */
-            val = setjmp (env);
-            xfree (li);
-            free_line (l);
+        pid_t pid = fork ();
+        int ret;
+        if (pid == 0)
+        {
+            signal (SIGINT, handler);
+/*            val = setjmp (env); */
+/*            xfree (li); */
+/*            free_line (l); */
             li = NULL;
             l = NULL;
             const char *pt = get_prompt ();
             li = read_line (pt);
             if (xstrcmp ("quit", li) == 0)
-                break;
-/*                exit (0); */
+/*                break; */
+                exit (127);
             l = parse_line (li);
 /*            dump_line (l); */
             run_line (l);
 
-/*            exit (0); */
-/*        } */
+            /* never reach */
+            exit (127);
+        }
 /*        signal (SIGINT, handler); */
-/*        waitpid (pid, NULL, 0); */
+        waitpid (pid, &ret, 0);
+        ret_code = WEXITSTATUS(ret); 
+        if (ret_code == 127)
+            break;
     }
 
 /* avoid the 'unused variables' warning */

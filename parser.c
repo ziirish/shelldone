@@ -304,8 +304,8 @@ parse_filepath (char **split,
                 else
                     sub = TRUE;
                         /* FIXME: our list should be sorted... */
-//                        if (found && !ok)
-//                            break;
+/*                        if (found && !ok) */
+/*                            break; */
                 if (ok == 0)
                 {
                     if (j >= n * 10)

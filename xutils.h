@@ -47,7 +47,7 @@
  * @param b Value to compare
  * @return Smallest value between a and b
  */
-extern int xmin (int a, int b);
+int xmin (int a, int b);
 
 /**
  * Returns the biggest value of the given parameters
@@ -55,7 +55,7 @@ extern int xmin (int a, int b);
  * @param b Value to compare
  * @return Biggest value between a and b
  */
-extern int xmax (int a, int b);
+int xmax (int a, int b);
 
 /**
  * Frees the memory used by the given list
