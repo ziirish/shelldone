@@ -85,6 +85,12 @@ void clear_command_list (void);
 void init_history (void);
 
 /**
+ * Insert the command line in the history
+ * @param cmd Command line to insert
+ */
+void insert_history (const char *cmd);
+
+/**
  * Clear the history
  */
 void clear_history (void);

@@ -37,8 +37,8 @@
 /* define a few useful MACRO */
 #define TRUE      1
 #define FALSE     0
-#define ARGC     10
-#define BUF     128
+#define ARGC     50
+#define BUF     256
 #define HISTORY 100
 
 /**
