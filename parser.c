@@ -48,6 +48,7 @@
 #include <errno.h>
 #include <termios.h>
 #include <fnmatch.h>
+#include <err.h>
 
 #include "command.h"
 #include "parser.h"
@@ -107,6 +108,33 @@ init_history (void)
     int i;
     for (i = 0; i < HISTORY; i++)
         history[i] = NULL;
+}
+
+void
+insert_history (const char *cmd)
+{
+    unsigned int found = FALSE;
+    /* do we save the command in the history? */
+    /*
+    for (i = 0; i < HISTORY && history[i] != NULL; i++)
+    {
+        if (xstrcmp (history[i], cmd) == 0)
+        {
+            found = TRUE;
+            break;
+        }
+    }
+    */
+    if (!found && xstrlen (cmd) > 0)
+    {
+        if (last_history == 0 || xstrcmp (cmd, history[last_history-1]) != 0)
+        {
+            last_history = last_history < HISTORY ? last_history : 0;
+            xfree (history[last_history]);
+            history[last_history] = xstrdup (cmd);
+            last_history++;
+        }
+    }
 }
 
 void 
@@ -189,20 +217,20 @@ init_ioctl (void)
     struct termios term;
 
     if (ioctl (STDIN_FILENO, TCGETS, &term) != 0)
-        fprintf (stderr, "ioctl G prob\n");
+        err (3, "\nioctl G prob");
     in_save = term;
     term.c_lflag &= ~(ECHO | ICANON);
     term.c_cc[VMIN] = 1;
     term.c_cc[VTIME] = 0;
     if (ioctl (STDIN_FILENO, TCSETS, &term) != 0)
-        fprintf (stderr, "ioctl S prob\n");
+        err (3, "\nioctl S prob");
 }
 
 static void
 clear_ioctl (void)
 {
     if (ioctl (STDIN_FILENO, TCSETS, &in_save) != 0)
-        fprintf (stderr, "ioctl S prob\n");
+        err (3, "\nioctl S prob");
 }
 
 static char *
@@ -837,29 +865,7 @@ parse_line (const char *l)
     size_t size = xstrlen (l);
     int new_word = 0, first = 1, new_command = 0, begin = 1, i = 0, factor = 1,
         factor2 = 1, arg = 0, squote = 0, dquote = 0;
-    unsigned int found = FALSE;
     command *curr = NULL;
-    /* do we save the command in the history? */
-    /*
-    for (i = 0; i < HISTORY && history[i] != NULL; i++)
-    {
-        if (xstrcmp (history[i], l) == 0)
-        {
-            found = TRUE;
-            break;
-        }
-    }
-    */
-    if (!found && xstrlen (l) > 0)
-    {
-        if (last_history == 0 || xstrcmp (l, history[last_history-1]) != 0)
-        {
-            last_history = last_history < HISTORY ? last_history : 0;
-            xfree (history[last_history]);
-            history[last_history] = xstrdup (l);
-            last_history++;
-        }
-    }
     i = 0;
     /* let's create the line container */
     ret = xmalloc (sizeof (*ret));
@@ -913,7 +919,7 @@ parse_line (const char *l)
                     curr->argc++;
                 }
                 new_word = 1;
-                factor = 1;
+                /*factor = 1;*/
                 factor2 = 1;
                 arg = 0;
                 i = 0;
@@ -1174,24 +1180,10 @@ parse_line (const char *l)
             else if (curr->argc >= factor * ARGC)
             {
                 factor++;
-                char **tmp = xrealloc (curr->argv, 
+                curr->argv = xrealloc (curr->argv, 
                                        factor * ARGC * sizeof (char *));
-                Protection *ptmp = xrealloc (curr->protected,
-                                             factor*ARGC * sizeof(Protection));
-                if (tmp == NULL)
-                {
-                    free_cmd (curr);
-                    free_line (ret);
-                    return NULL;
-                }
-                curr->argv = tmp;
-                if (ptmp == NULL)
-                {
-                    free_cmd (curr);
-                    free_line (ret);
-                    return NULL;
-                }
-                curr->protected = ptmp;
+                curr->protected = xrealloc (curr->protected,
+                                            factor*ARGC * sizeof(Protection));
             }
             if (i == 0)
             {
