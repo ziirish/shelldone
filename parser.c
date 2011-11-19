@@ -58,11 +58,21 @@
 
 #define reset_completion() completion (NULL, NULL, NULL)
 
+#define sh_read(fileno,buf,size) do{\
+read (fileno,buf,size);\
+if (interrupted || errno == EINTR)\
+{\
+    goto exit;\
+}\
+} while (0);
+/*    fprintf (stdout, "\nread returned line %d\n", __LINE__);\*/
+
 static char *history[HISTORY];
 static int last_history = 0, curr_history;
 static char **command_list = NULL;
 static int nb_commands = 0;
 static struct termios in_save;
+extern unsigned int interrupted;
 
 /* static functions */
 static void init_ioctl (void);
@@ -1261,9 +1271,11 @@ get_char (const char input[5],
         len = xstrlen (input);
     else
         len = 5;
+    if (interrupted)
+        return '\n';
     if (len == 1)
     {
-/*        fprintf (stdout, "\nc: %c d: %d\n", input[0], input[0]);*/
+        /*fprintf (stdout, "\nc: %c d: %d\n", input[0], input[0]);*/
         switch (input[0])
         {
         /* backspace */
@@ -1376,7 +1388,7 @@ read_line (const char *prompt)
     do
     {
         memset (in, 0, 5);
-        read (STDIN_FILENO, &in, 5);
+        sh_read (STDIN_FILENO, &in, 5);
         c = get_char (in, prompt, &ret, &cpt, &ind);
     } while (c == -1);
     while (c != '\n' || 
@@ -1404,7 +1416,7 @@ read_line (const char *prompt)
             do
             {
                 memset (in, 0, 5);
-                read (STDIN_FILENO, &in, 5);
+                sh_read (STDIN_FILENO, &in, 5);
                 c = get_char (in, prompt, &ret, &cpt, &ind);
             } while (c == -1);
             continue;
@@ -1429,7 +1441,7 @@ read_line (const char *prompt)
             do
             {
                 memset (tmp, 0, 5);
-                read (STDIN_FILENO, &tmp, 5);
+                sh_read (STDIN_FILENO, &tmp, 5);
                 ctmp = get_char (tmp, prompt, &ret, &cpt, &ind);
             } while (ctmp == -1);
             if (ctmp == '\n')
@@ -1447,7 +1459,7 @@ read_line (const char *prompt)
             do
             {
                 memset (in, 0, 5);
-                read (STDIN_FILENO, &in, 5);
+                sh_read (STDIN_FILENO, &in, 5);
                 c = get_char (in, prompt, &ret, &cpt, &ind);
             } while (c == -1);
             nb_lines++;
@@ -1480,11 +1492,12 @@ replay:
         do
         {
             memset (in, 0, 5);
-            read (STDIN_FILENO, &in, 5);
+            sh_read (STDIN_FILENO, &in, 5);
             c = get_char (in, prompt, &ret, &cpt, &ind);
         } while (c == -1);
     }
     fprintf (stdout, "\n");
+exit:
     if (cpt >= ind * BUF)
     {
         char *new = xrealloc (ret, (ind * BUF * sizeof (char)) + 1);
@@ -1497,5 +1510,9 @@ replay:
     }
     ret[cpt] = '\0';
     clear_ioctl ();
+    if (interrupted) {
+        xfree (ret);
+        return NULL;
+    }
     return ret;
 }

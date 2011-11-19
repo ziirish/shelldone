@@ -447,5 +447,5 @@ run_line (input_line *ptr)
             cmd = cmd->next;
         }
     }
-    exit (ret_code);
+/*    exit (ret_code);*/
 }

@@ -54,11 +54,13 @@ static char *host = NULL;
 static const char *fpwd = NULL;
 static input_line *l = NULL;
 static char *li = NULL;
+unsigned int interrupted = FALSE;
 
 static void shelldone_init (void);
 static void shelldone_clean (void);
 static void handler (int signal);
 static const char *get_prompt (void);
+static void shelldone_loop (void);
 
 int ret_code;
 
@@ -76,7 +78,7 @@ shelldone_init (void)
     /* register the cleanup function */
     atexit (shelldone_clean);
     /* ignoring SIGINT */
-    signal (SIGINT, SIG_IGN);
+    signal (SIGINT, handler);
 }
 
 /* Cleanup function */
@@ -102,8 +104,11 @@ static void
 handler (int sig)
 {
     (void) sig;
+    interrupted = TRUE;
     fprintf (stdout, "^C\n");
-    exit (0);
+/*    signal (SIGINT, handler);*/
+/*    shelldone_loop ();*/
+/*    exit (0);*/
 }
 
 /**
@@ -155,6 +160,32 @@ get_prompt (void)
     return prompt;
 }
 
+static void
+shelldone_loop (void)
+{
+    while (1)
+    {
+        interrupted = FALSE;
+        li = NULL;
+        l = NULL;
+        const char *pt = get_prompt ();
+        /* read the input line */
+        li = read_line (pt);
+        if (xstrcmp ("quit", li) == 0)
+            break;
+        if (xstrlen (li) > 0)
+            insert_history (li);
+        /* parsing the input line into a command-line structure */
+        l = parse_line (li);
+/*        dump_line (l); */
+        /* execute the command-line */
+        run_line (l);
+
+        free_line (l);
+        xfree (li);
+    }
+}
+
 int
 main (int argc, char **argv)
 {
@@ -162,83 +193,7 @@ main (int argc, char **argv)
     shelldone_init ();
 
     /* infinite loop waiting for commands to launch */
-    while (1)
-    {
-        /* let's prepare a pipe for the inter-process dialog */
-        int fd[2];
-        if (pipe (fd) == -1)
-            perror ("pipe");
-        pid_t pid = fork ();
-        int ret;
-        /* here is the child */
-        if (pid == 0)
-        {
-            /* closing the input filedesc since we just need to write */
-            close (fd[0]);
-            /* register the SIGINT handler */
-            signal (SIGINT, handler);
-            li = NULL;
-            l = NULL;
-            const char *pt = get_prompt ();
-            /* read the input line */
-            li = read_line (pt);
-            /* write the line to our father */
-            write (fd[1], li, xstrlen (li) + 1);
-            close (fd[1]);
-            if (xstrcmp ("quit", li) == 0)
-                exit (127);
-            /* parsing the input line into a command-line structure */
-            l = parse_line (li);
-/*            dump_line (l); */
-            /* execute the command-line */
-            run_line (l);
-
-            /* never reach */
-            exit (127);
-        }
-        /* never reach by the child */
-        /* here we are in the father process */
-        /* we close the output filedesc since we just need to read */
-        close (fd[1]);
-        char buf[BUF], *cmd = NULL;
-        int cpt = 1;
-        ssize_t r = 0;
-        size_t len = 0;
-        /* we read the pipe from our child */
-        do
-        {
-            memset (buf, 0, sizeof (buf));
-            r = read (fd[0], buf, sizeof (buf) - 1);
-            buf[r] = '\0';
-            len += r;
-            if (r == -1)
-                perror ("read");
-            if (r == 0)
-                break;
-            if (cpt > 1)
-            {
-                cmd = xrealloc (cmd, len + 1);
-                cmd = strncat (cmd, buf, len);
-            }
-            else
-            {
-                cmd = xmalloc (len + 1);
-                snprintf (cmd, len + 1, "%s", buf);
-            }
-            cpt++;
-        } while (r == (int) sizeof (buf) - 1);
-        close (fd[0]);
-        /* we add the line in the history if it's not empty */
-        if (cmd != NULL)
-            insert_history (cmd);
-        /* we wait until our child is done */
-        waitpid (pid, &ret, 0);
-        ret_code = WEXITSTATUS(ret); 
-        unsigned int t = xstrcmp (cmd, "quit") == 0;
-        xfree (cmd);
-        if (ret_code == 127 && t)
-            break;
-    }
+    shelldone_loop ();
 
 /* avoid the 'unused variables' warning */
     (void) argc;
