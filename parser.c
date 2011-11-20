@@ -59,8 +59,9 @@
 #define reset_completion() completion (NULL, NULL, NULL)
 
 #define sh_read(fileno,buf,size) do{\
+interrupted = FALSE;\
 read (fileno,buf,size);\
-if (interrupted || errno == EINTR)\
+if (interrupted && errno == EINTR)\
 {\
     goto exit;\
 }\

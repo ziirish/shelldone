@@ -41,6 +41,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <signal.h>
+#include <err.h>
 
 #include "xutils.h"
 #include "parser.h"
@@ -78,7 +79,12 @@ shelldone_init (void)
     /* register the cleanup function */
     atexit (shelldone_clean);
     /* ignoring SIGINT */
-    signal (SIGINT, handler);
+    struct sigaction sa;
+    sa.sa_handler = handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+    if (sigaction(SIGINT, &sa, NULL) != 0)
+        err (3, "sigaction");
 }
 
 /* Cleanup function */
