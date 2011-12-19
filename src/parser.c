@@ -55,6 +55,7 @@
 #include "xutils.h"
 #include "structs.h"
 #include "caps.h"
+#include "list.h"
 
 #define reset_completion() completion (NULL, NULL, NULL)
 
@@ -81,8 +82,8 @@ static void clear_ioctl (void);
 static char *completion (const char *prompt, char *buf, int *ind);
 static int cmpsort (const void *p1, const void *p2);
 static int reg_filter (const struct dirent *p);
-static void line_append (input_line **ptr, command *data);
-static command *copy_cmd (const command *src);
+/*static void line_append (input_line **ptr, command *data);*/
+static command_line *copy_cmd (const command_line *src);
 static char get_char (const char input[5],
                       const char *prompt,
                       char **ret,
@@ -759,10 +760,10 @@ free_line (input_line *ptr)
     if (ptr != NULL)
     {
         int cpt = 0;
-        command *tmp = ptr->head;
-        while (cpt < ptr->nb && tmp != NULL)
+        command_line *tmp = ptr->head;
+        while (cpt < ptr->size && tmp != NULL)
         {
-            command *tmp2 = tmp->next;
+            command_line *tmp2 = tmp->next;
             free_cmd (tmp);
             tmp = tmp2;
             cpt++;
@@ -771,8 +772,9 @@ free_line (input_line *ptr)
     }
 }
 
+/*
 static void
-line_append (input_line **ptr, command *data)
+line_append (input_line **ptr, command_line *data)
 {
     if (*ptr != NULL && data != NULL)
     {
@@ -790,38 +792,40 @@ line_append (input_line **ptr, command *data)
             (*ptr)->tail = data;
             data->next = NULL;
         }
-        (*ptr)->nb++;
+        (*ptr)->size++;
     }
 }
+*/
 
-static command *
-copy_cmd (const command *src)
+static command_line *
+copy_cmd (const command_line *src)
 {
-    command *ret = new_cmd ();
+    command_line *ret = new_cmd ();
     if (ret == NULL)
         return NULL;
-    ret->cmd = xstrdup (src->cmd);
-    ret->flag = src->flag;
-    ret->in = src->in;
-    ret->out = src->out;
-    ret->err = src->err;
+    ret->content->cmd = xstrdup (src->content->cmd);
+    ret->content->flag = src->content->flag;
+    ret->content->in = src->content->in;
+    ret->content->out = src->content->out;
+    ret->content->err = src->content->err;
     ret->prev = src->prev;
     ret->next = src->next;
-    ret->builtin = src->builtin;
-    ret->pid = src->pid;
-    if (src->argc > 0)
+    ret->content->builtin = src->content->builtin;
+    ret->content->pid = src->content->pid;
+    if (src->content->argc > 0)
     {
-        ret->argv = xcalloc (src->argc, sizeof (char *));
-        ret->protected = xcalloc (src->argc, sizeof (Protection));
-        if (ret->argv != NULL && ret->protected != NULL)
+        ret->content->argv = xcalloc (src->content->argc, sizeof (char *));
+        ret->content->protected = xcalloc (src->content->argc,
+                                           sizeof (Protection));
+        if (ret->content->argv != NULL && ret->content->protected != NULL)
         {
             int i;
-            for (i = 0; i < src->argc; i++)
+            for (i = 0; i < src->content->argc; i++)
             {
-                ret->argv[i] = xstrdup (src->argv[i]);
-                ret->protected[i] = src->protected[i];
+                ret->content->argv[i] = xstrdup (src->content->argv[i]);
+                ret->content->protected[i] = src->content->protected[i];
             }
-            ret->argc = src->argc;
+            ret->content->argc = src->content->argc;
         }
         else
         {
@@ -831,22 +835,27 @@ copy_cmd (const command *src)
     }
     else
     {
-        ret->argv = NULL;
-        ret->protected = NULL;
+        ret->content->argv = NULL;
+        ret->content->protected = NULL;
     }
     return ret;
 }
 
 void
-dump_cmd (command *ptr)
+dump_cmd (command_line *ptrc)
 {
-    if (ptr != NULL)
+    if (ptrc != NULL)
     {
-        int i;
-        fprintf (stdout, "cmd: %s\n", ptr->cmd);
-        fprintf (stdout, "argc: %d\n", ptr->argc);
-        for (i = 0; i < ptr->argc; i++)
-            fprintf (stdout, "argv[%d]: %s (%d)\n", i, ptr->argv[i], ptr->protected[i]);
+        command *ptr = ptrc->content;
+        if (ptr != NULL) {            
+            int i;
+            fprintf (stdout, "cmd: %s\n", ptr->cmd);
+            fprintf (stdout, "argc: %d\n", ptr->argc);
+            for (i = 0; i < ptr->argc; i++)
+                fprintf (stdout, "argv[%d]: %s (%d)\n", i,
+                                                    ptr->argv[i],
+                                                    ptr->protected[i]);
+        }
     }
 }
 
@@ -855,10 +864,10 @@ dump_line (input_line *ptr)
 {
     if (ptr != NULL)
     {
-        command *tmp = ptr->head;
+        command_line *tmp = ptr->head;
         int cpt = 0;
-        if (ptr->nb > 0)
-            fprintf (stdout, "nb commands: %d\n", ptr->nb);
+        if (ptr->size > 0)
+            fprintf (stdout, "nb commands: %d\n", ptr->size);
         while (tmp != NULL)
         {
             fprintf (stdout, "=== Dump cmd n°%d ===\n", ++cpt);
@@ -876,13 +885,13 @@ parse_line (const char *l)
     size_t size = xstrlen (l);
     int new_word = 0, first = 1, new_command = 0, begin = 1, i = 0, factor = 1,
         factor2 = 1, arg = 0, squote = 0, dquote = 0;
-    command *curr = NULL;
+    command_line *curr = NULL;
     i = 0;
     /* let's create the line container */
     ret = xmalloc (sizeof (*ret));
     if (ret == NULL)
         return NULL;
-    ret->nb = 0;
+    ret->size = 0;
     ret->head = NULL;
     ret->tail = NULL;
     curr = new_cmd ();
@@ -922,12 +931,12 @@ parse_line (const char *l)
             {
                 if (i != 0 && begin)
                 {
-                    curr->cmd[i] = '\0';
+                    curr->content->cmd[i] = '\0';
                 }
                 else if (i != 0)
                 {
-                    curr->argv[curr->argc][i] = '\0';
-                    curr->argc++;
+                    curr->content->argv[curr->content->argc][i] = '\0';
+                    curr->content->argc++;
                 }
                 new_word = 1;
                 /*factor = 1;*/
@@ -1011,9 +1020,9 @@ parse_line (const char *l)
                         char buf[10];
                         snprintf (buf, 10, "%c", l[cpt+2]);
                         if (fd == STDERR_FILENO)
-                            curr->err = strtol (buf, NULL, 10);
+                            curr->content->err = strtol (buf, NULL, 10);
                         else if (fd == STDOUT_FILENO)
-                            curr->out = strtol (buf, NULL, 10);
+                            curr->content->out = strtol (buf, NULL, 10);
                         cpt += 3;
                         continue;
                     }
@@ -1067,19 +1076,19 @@ parse_line (const char *l)
                 return NULL;
             }
             if (read)
-                curr->in = desc;
+                curr->content->in = desc;
             else
             {
                 switch (fd)
                 {
                 case STDOUT_FILENO:
-                    curr->out = desc;
+                    curr->content->out = desc;
                     break;
                 case STDERR_FILENO:
-                    curr->err = desc;
+                    curr->content->err = desc;
                     break;
                 default:
-                    curr->out = desc;
+                    curr->content->out = desc;
                 }
             }
             xfree (file);
@@ -1092,12 +1101,12 @@ parse_line (const char *l)
             cpt++;
             if (i != 0 && begin)
             {
-                curr->cmd[i] = '\0';
+                curr->content->cmd[i] = '\0';
             }
             else if (i != 0)
             {
-                curr->argv[curr->argc][i] = '\0';
-                curr->argc++;
+                curr->content->argv[curr->content->argc][i] = '\0';
+                curr->content->argc++;
             }
             /* let's set the flag to know how to run the command */
             switch (l[cpt-1]) 
@@ -1106,22 +1115,22 @@ parse_line (const char *l)
                 if (cpt < size && l[cpt] == '|')
                 {
                     cpt++;
-                    curr->flag = OR;
+                    curr->content->flag = OR;
                 }
                 else
-                    curr->flag = PIPE;
+                    curr->content->flag = PIPE;
                 break;
             case ';':
-                curr->flag = END;
+                curr->content->flag = END;
                 break;
             case '&':
                 if (cpt < size && l[cpt] == '&')
                 {
                     cpt++;
-                    curr->flag = AND;
+                    curr->content->flag = AND;
                 }
                 else
-                    curr->flag = BG;
+                    curr->content->flag = BG;
                 break;
             }
             new_command = 1;
@@ -1138,8 +1147,9 @@ parse_line (const char *l)
         if (new_command)
         {
             new_command = 0;
-            command *tmp = copy_cmd (curr);
-            line_append (&ret, tmp);
+            command_line *tmp = copy_cmd (curr);
+            /*line_append (&ret, tmp);*/
+            list_append ((sdlist **)&ret, (sddata *)tmp);
             free_cmd (curr);
             curr = new_cmd ();
             if (curr == NULL)
@@ -1150,10 +1160,10 @@ parse_line (const char *l)
         }
         if (begin && !new_word)
         {
-            if (curr->cmd == NULL)
+            if (curr->content->cmd == NULL)
             {
-                curr->cmd = xmalloc (factor * BUF * sizeof (char));
-                if (curr->cmd == NULL)
+                curr->content->cmd = xmalloc (factor * BUF * sizeof (char));
+                if (curr->content->cmd == NULL)
                 {
                     free_cmd (curr);
                     free_line (ret);
@@ -1163,24 +1173,26 @@ parse_line (const char *l)
             if (i >= factor * BUF)
             {
                 factor++;
-                char *tmp = xrealloc (curr->cmd, factor * BUF * sizeof (char));
+                char *tmp = xrealloc (curr->content->cmd, factor * BUF * sizeof (char));
                 if (tmp == NULL)
                 {
                     free_cmd (curr);
                     free_line (ret);
                     return NULL;
                 }
-                curr->cmd = tmp;
+                curr->content->cmd = tmp;
             }
-            curr->cmd[i] = l[cpt];
+            curr->content->cmd[i] = l[cpt];
         }
         else if (new_word)
         {
-            if (curr->argc == 0 && !arg)
+            if (curr->content->argc == 0 && !arg)
             {
-                curr->argv = xcalloc (factor * ARGC, sizeof (char *));
-                curr->protected = xcalloc (factor * ARGC, sizeof (Protection));
-                if (curr->argv == NULL || curr->protected == NULL)
+                curr->content->argv = xcalloc (factor * ARGC, sizeof (char *));
+                curr->content->protected = xcalloc (factor * ARGC,
+                                                    sizeof (Protection));
+                if (curr->content->argv == NULL ||
+                    curr->content->protected == NULL)
                 {
                     free_cmd (curr);
                     free_line (ret);
@@ -1188,18 +1200,19 @@ parse_line (const char *l)
                 }
                 arg = 1;
             }
-            else if (curr->argc >= factor * ARGC)
+            else if (curr->content->argc >= factor * ARGC)
             {
                 factor++;
-                curr->argv = xrealloc (curr->argv, 
+                curr->content->argv = xrealloc (curr->content->argv,
                                        factor * ARGC * sizeof (char *));
-                curr->protected = xrealloc (curr->protected,
+                curr->content->protected = xrealloc (curr->content->protected,
                                             factor*ARGC * sizeof(Protection));
             }
             if (i == 0)
             {
-                curr->argv[curr->argc] = xmalloc (BUF * sizeof (char));
-                if (curr->argv[curr->argc] == NULL)
+                curr->content->argv[curr->content->argc] = 
+                                                xmalloc (BUF * sizeof (char));
+                if (curr->content->argv[curr->content->argc] == NULL)
                 {
                     free_cmd (curr);
                     free_line (ret);
@@ -1209,7 +1222,7 @@ parse_line (const char *l)
             else if (i >= factor2 * BUF)
             {
                 factor2++;
-                char *tmp = xrealloc (curr->argv[curr->argc], 
+                char *tmp = xrealloc (curr->content->argv[curr->content->argc],
                                       factor2 * BUF * sizeof (char));
                 if (tmp == NULL)
                 {
@@ -1217,43 +1230,45 @@ parse_line (const char *l)
                     free_line (ret);
                     return NULL;
                 }
-                curr->argv[curr->argc] = tmp;
+                curr->content->argv[curr->content->argc] = tmp;
             }
-            curr->argv[curr->argc][i] = l[cpt];
+            curr->content->argv[curr->content->argc][i] = l[cpt];
             if (dquote)
-                curr->protected[curr->argc] = DOUBLE_QUOTE;
+                curr->content->protected[curr->content->argc] = DOUBLE_QUOTE;
             else if (squote)
-                curr->protected[curr->argc] = SINGLE_QUOTE;
+                curr->content->protected[curr->content->argc] = SINGLE_QUOTE;
             else
-                curr->protected[curr->argc] = NONE;
+                curr->content->protected[curr->content->argc] = NONE;
         }
         i++;
         cpt++;
     }
     if (i != 0 && begin)
     {   
-        curr->cmd[i] = '\0';
+        curr->content->cmd[i] = '\0';
     }   
     else if (i != 0)
     {   
-        curr->argv[curr->argc][i] = '\0';
-        curr->argc++;
-        if (curr->argc >= factor * ARGC)
+        curr->content->argv[curr->content->argc][i] = '\0';
+        curr->content->argc++;
+        if (curr->content->argc >= factor * ARGC)
         {
             factor++;
-            char **tmp = xrealloc (curr->argv, factor * ARGC * sizeof (char *));
+            char **tmp = xrealloc (curr->content->argv,
+                                   factor * ARGC * sizeof (char *));
             if (tmp == NULL)
             {
                 free_cmd (curr);
                 free_line (ret);
                 return NULL;
             }
-            curr->argv = tmp;
+            curr->content->argv = tmp;
         }
-        curr->argv[curr->argc] = NULL;
+        curr->content->argv[curr->content->argc] = NULL;
     }  
-    if (curr->cmd != NULL)
-        line_append (&ret, curr);
+    if (curr->content->cmd != NULL)
+        /*line_append (&ret, curr);*/
+        list_append ((sdlist **)&ret, (sddata *)curr);
     else
         free_cmd (curr);
     return ret;

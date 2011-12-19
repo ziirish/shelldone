@@ -69,39 +69,41 @@ sighandler (int sig)
     (void) sig;
 }
 
-command *
+command_line *
 new_cmd (void)
 {
-    command *ret = xmalloc (sizeof (*ret));
+    command_line *ret = xmalloc (sizeof (*ret));
     if (ret != NULL)
     {
-        ret->cmd = NULL;
-        ret->argv = NULL;
-        ret->protected = NULL;
-        ret->argc = 0;
+        ret->content = xmalloc (sizeof (*(ret->content)));
+        ret->content->cmd = NULL;
+        ret->content->argv = NULL;
+        ret->content->protected = NULL;
+        ret->content->argc = 0;
+        ret->content->flag = END;
+        ret->content->in = STDIN_FILENO;
+        ret->content->out = STDOUT_FILENO;
+        ret->content->err = STDERR_FILENO;
+        ret->content->builtin = FALSE;
+        ret->content->pid = -1;
         ret->next = NULL;
         ret->prev = NULL;
-        ret->flag = END;
-        ret->in = STDIN_FILENO;
-        ret->out = STDOUT_FILENO;
-        ret->err = STDERR_FILENO;
-        ret->builtin = FALSE;
-        ret->pid = -1;
     }
     return ret;
 }
 
 void
-free_cmd (command *ptr)
+free_cmd (command_line *ptr)
 {
     if (ptr != NULL)
     {
         int cpt;
-        for (cpt = 0; cpt < ptr->argc; cpt++)
-            xfree (ptr->argv[cpt]);
-        xfree (ptr->argv);
-        xfree (ptr->cmd);
-        xfree (ptr->protected);
+        for (cpt = 0; cpt < ptr->content->argc; cpt++)
+            xfree (ptr->content->argv[cpt]);
+        xfree (ptr->content->argv);
+        xfree (ptr->content->cmd);
+        xfree (ptr->content->protected);
+        xfree (ptr->content);
         xfree (ptr);
     }
 }
@@ -212,8 +214,11 @@ check_wildcard_match (const char *text, const char *pattern)
 }
 
 pid_t
-run_command (command *ptr)
+run_command (command_line *ptrc)
 {
+    if (ptrc == NULL)
+        return -1;
+    command *ptr = ptrc->content;
     pid_t r = -1;
     if (ptr != NULL)
     {
@@ -318,10 +323,10 @@ run_line (input_line *ptr)
     int ret = 0;
     if (ptr != NULL)
     {
-        command *cmd = ptr->head;
+        command_line *cmd = ptr->head;
         while (cmd != NULL)
         {
-            switch (cmd->flag)
+            switch (cmd->content->flag)
             {
             /* 
              * launch a command in background is pretty much the same as
@@ -332,15 +337,15 @@ run_line (input_line *ptr)
             case END:
             {
                 pid_t p = run_command (cmd);
-                cmd->pid = p;
+                cmd->content->pid = p;
                 /* p should never be equal to -1 */
-                if (p != -1 && !cmd->builtin)
+                if (p != -1 && !cmd->content->builtin)
                 {
-                    waitpid (p, &ret, cmd->flag == BG ? WNOHANG : 0);
+                    waitpid (p, &ret, cmd->content->flag == BG ? WNOHANG : 0);
                     ret_code = WEXITSTATUS(ret);
-                    if (cmd->flag == BG)
+                    if (cmd->content->flag == BG)
                     {
-                        lastcmd = xstrdup (cmd->cmd);
+                        lastcmd = xstrdup (cmd->content->cmd);
                         signal (SIGCHLD, sighandler);
                     }
                 }
@@ -354,9 +359,9 @@ run_line (input_line *ptr)
             {
                 int nb = 1, i;
                 pid_t p;
-                command *exec = cmd, *save;
-                flag = cmd->flag;
-                while (exec != NULL && exec->flag == flag)
+                command_line *exec = cmd, *save;
+                flag = cmd->content->flag;
+                while (exec != NULL && exec->content->flag == flag)
                 {
                     nb++;
                     save = exec;
@@ -366,8 +371,8 @@ run_line (input_line *ptr)
                     save = exec;
                 exec = cmd;
                 p = run_command (exec);
-                exec->pid = p;
-                if (p != -1 && !exec->builtin)
+                exec->content->pid = p;
+                if (p != -1 && !exec->content->builtin)
                 {
                     waitpid (p, &ret, 0);
                     ret_code = WEXITSTATUS(ret);
@@ -381,8 +386,8 @@ run_line (input_line *ptr)
                                         (ret_code != 0)))
                 {
                     p = run_command (exec);
-                    exec->pid = p;
-                    if (p != -1 && !exec->builtin)
+                    exec->content->pid = p;
+                    if (p != -1 && !exec->content->builtin)
                     {
                         waitpid (p, &ret, 0);
                         ret_code = WEXITSTATUS(ret);
@@ -400,8 +405,8 @@ run_line (input_line *ptr)
                 int nb = 1, i, fd[2];
                 pid_t *p;
                 unsigned int *builtins;
-                command *exec = cmd, *save = cmd;
-                while (exec != NULL && exec->flag == PIPE)
+                command_line *exec = cmd, *save = cmd;
+                while (exec != NULL && exec->content->flag == PIPE)
                 {
                     nb++;
                     exec = exec->next;
@@ -413,20 +418,20 @@ run_line (input_line *ptr)
                 {
                     pipe (fd);
                     if (i != nb - 1)
-                        exec->out = fd[1];
+                        exec->content->out = fd[1];
                     p[i] = run_command (exec);
-                    builtins[i] = exec->builtin;
-                    exec->pid = p[i];
-                    if (exec->out != STDOUT_FILENO && 
-                        exec->out != STDERR_FILENO)
-                        close (exec->out);
-                    if (exec->err != STDERR_FILENO && 
-                        exec->err != STDOUT_FILENO)
-                        close (exec->err);
+                    builtins[i] = exec->content->builtin;
+                    exec->content->pid = p[i];
+                    if (exec->content->out != STDOUT_FILENO && 
+                        exec->content->out != STDERR_FILENO)
+                        close (exec->content->out);
+                    if (exec->content->err != STDERR_FILENO && 
+                        exec->content->err != STDOUT_FILENO)
+                        close (exec->content->err);
                     save = exec;
                     exec = exec->next;
                     if (exec != NULL)
-                        exec->in = fd[0];
+                        exec->content->in = fd[0];
                 }
                 for (i = 0; i < nb; i++)
                 {

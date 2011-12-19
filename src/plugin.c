@@ -31,33 +31,53 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
-#ifndef _COMMAND_H_
-#define _COMMAND_H_
+#include <stdlib.h>
+#include <unistd.h>
 
-#include "structs.h"
+#include "sdlib/plugin.h"
+#include "xutils.h"
+#include "list.h"
 
-/* Allocate memory for a command structure */
-command_line *new_cmd (void);
+sdplist *
+sdplist_new (void)
+{
+    sdplist *ret = xcalloc (1, sizeof(*ret));
+    ret->head = NULL;
+    ret->tail = NULL;
+    ret->size = 0;
 
-/** 
- * Free memory used by the given command
- * @param ptr Command that must be free'ed
- */
-void free_cmd (command_line *ptr);
+    return ret;
+}
 
-/**
- * Parse the given command to separate the builtins from the rest and replace
- * the wildcards/variables/etc in order to execute in a subprocess for the
- * non-builtin commands.
- * @param ptr The command to parse
- */
-void parse_command (command_line *ptrc);
+sdplugin *
+sdplugin_new (void)
+{
+    sdplugin *ret = xcalloc (1, sizeof (*ret));
+    ret->name = NULL;
+    ret->prio = 0;
+    ret->loaded = FALSE;
+    ret->type = 0;
+    ret->init_plugin = NULL;
+    ret->clean_plugin = NULL;
+    ret->main_plugin = NULL;
+    ret->next = NULL;
+    ret->prev = NULL;
+    ret->lib = NULL;
 
-/**
- * Execute the given input_line evaluating the command returns to set the
- * apropriate viariables
- * @param ptr Input-line to run
- */
-void run_line (input_line *ptr);
+    return ret;
+}
 
-#endif
+sdplist*
+get_plugins_list (sdplist *ptr, sdplugin_type type)
+{
+    sdplist *ret = sdplist_new ();
+    sdplugin *curr = ptr->head;
+    while (curr != NULL)
+    {
+        if (curr->type == type)
+            list_append ((sdlist **)&ret, (sddata *)curr);
+        curr = curr->next;
+    }
+
+    return ret;
+}

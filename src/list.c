@@ -31,33 +31,31 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
-#ifndef _COMMAND_H_
-#define _COMMAND_H_
+#include <stdlib.h>
+#include <unistd.h>
 
-#include "structs.h"
+#include "list.h"
 
-/* Allocate memory for a command structure */
-command_line *new_cmd (void);
+void
+list_append (sdlist **ptr, sddata *data)
+{
+    if (*ptr != NULL && data != NULL)
+    {
+        if ((*ptr)->tail == NULL)
+        {
+            (*ptr)->head = data;
+            (*ptr)->tail = data;
+            data->next = NULL;
+            data->prev = NULL;
+        }
+        else
+        {
+            (*ptr)->tail->next = data;
+            data->prev = (*ptr)->tail;
+            (*ptr)->tail = data;
+            data->next = NULL;
+        }
+        (*ptr)->size++;
+    }
+}
 
-/** 
- * Free memory used by the given command
- * @param ptr Command that must be free'ed
- */
-void free_cmd (command_line *ptr);
-
-/**
- * Parse the given command to separate the builtins from the rest and replace
- * the wildcards/variables/etc in order to execute in a subprocess for the
- * non-builtin commands.
- * @param ptr The command to parse
- */
-void parse_command (command_line *ptrc);
-
-/**
- * Execute the given input_line evaluating the command returns to set the
- * apropriate viariables
- * @param ptr Input-line to run
- */
-void run_line (input_line *ptr);
-
-#endif

@@ -183,7 +183,7 @@ shelldone_loop (void)
             insert_history (li);
         /* parsing the input line into a command-line structure */
         l = parse_line (li);
-/*        dump_line (l); */
+/*        dump_line (l);*/
         /* execute the command-line */
         run_line (l);
 

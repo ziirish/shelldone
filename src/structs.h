@@ -35,7 +35,9 @@
 #define _STRUCTS_H_
 
 /* Structure that represents a command */
-typedef struct _command_line command;
+typedef struct _command_line command_line;
+
+typedef struct _command command;
 
 /** 
  * Structure that represents a command-line
@@ -66,7 +68,7 @@ typedef enum {
     SINGLE_QUOTE
 } Protection;
 
-struct _command_line {
+struct _command {
     /* command */
     char *cmd;
     /* arguments */
@@ -90,19 +92,26 @@ struct _command_line {
     /* pid of the command */
     pid_t pid;
     /* next cmd */
-    command *next;
+/*    command *next;*/
     /* prev cmd */
-    command *prev;
+/*    command *prev;*/
+};
+
+struct _command_line {
+    command *content;
+
+    command_line *next;
+    command_line *prev;
 };
 
 /* a double linked list */
 struct _line {
     /* head command */
-    command *head;
+    command_line *head;
     /* tail command */
-    command *tail;
+    command_line *tail;
     /* nb commands */
-    int nb;
+    int size;
 };
 
 #endif

@@ -46,7 +46,7 @@ void free_line (input_line *ptr);
  * A debug function used to display the content of a command
  * @param ptr Command to display
  */
-void dump_cmd (command *ptr);
+void dump_cmd (command_line *ptrc);
 
 /**
  * A debug function used to display the content of a command-line
