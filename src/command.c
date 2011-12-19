@@ -47,18 +47,21 @@
 #include "command.h"
 #include "parser.h"
 #include "xutils.h"
+#include "jobs.h"
 
 static const builtin calls[] = {{"cd", (cmd_builtin) sd_cd},
                                 {"pwd", (cmd_builtin) sd_pwd},
                                 {"exec", (cmd_builtin) sd_exec},
                                 {"exit", (cmd_builtin) sd_exit},
+                                {"jobs", (cmd_builtin) sd_jobs},
                                 {"rehash", (cmd_builtin) sd_rehash},
 /*                              {"echo", (cmd_builtin) sd_echo}, */
                                 {NULL, NULL}};
 
 extern int ret_code;
-static char *lastcmd = NULL;
+/*static char *lastcmd = NULL;*/
 
+/*
 static void
 sighandler (int sig)
 {
@@ -68,42 +71,120 @@ sighandler (int sig)
     signal (SIGCHLD, SIG_DFL);
     (void) sig;
 }
+*/
+
+command *
+new_command (void)
+{
+    command *ret = xmalloc (sizeof (*ret));
+    if (ret != NULL)
+    {
+        ret->cmd = NULL;
+        ret->argv = NULL;
+        ret->protected = NULL;
+        ret->argc = 0;
+        ret->flag = END;
+        ret->in = STDIN_FILENO;
+        ret->out = STDOUT_FILENO;
+        ret->err = STDERR_FILENO;
+        ret->builtin = FALSE;
+        ret->pid = -1;
+        ret->job = -1;
+    }
+    return ret;
+}
 
 command_line *
-new_cmd (void)
+new_cmd_line (void)
 {
     command_line *ret = xmalloc (sizeof (*ret));
     if (ret != NULL)
     {
-        ret->content = xmalloc (sizeof (*(ret->content)));
-        ret->content->cmd = NULL;
-        ret->content->argv = NULL;
-        ret->content->protected = NULL;
-        ret->content->argc = 0;
-        ret->content->flag = END;
-        ret->content->in = STDIN_FILENO;
-        ret->content->out = STDOUT_FILENO;
-        ret->content->err = STDERR_FILENO;
-        ret->content->builtin = FALSE;
-        ret->content->pid = -1;
+        ret->content = new_command ();
         ret->next = NULL;
         ret->prev = NULL;
     }
     return ret;
 }
 
+command *
+copy_command (const command *src)
+{
+    if (src == NULL)
+        return NULL;
+    command *ret = new_command ();
+    if (ret == NULL)
+        return NULL;
+    ret->cmd = xstrdup (src->cmd);
+    ret->flag = src->flag;
+    ret->in = src->in;
+    ret->out = src->out;
+    ret->err = src->err;
+    ret->builtin = src->builtin;
+    ret->pid = src->pid;
+    ret->job = src->job;
+    if (src->argc > 0)
+    {
+        ret->argv = xcalloc (src->argc, sizeof (char *));
+        ret->protected = xcalloc (src->argc, sizeof (Protection));
+        if (ret->argv != NULL && ret->protected != NULL)
+        {
+            int i;
+            for (i = 0; i < src->argc; i++)
+            {
+                ret->argv[i] = xstrdup (src->argv[i]);
+                ret->protected[i] = src->protected[i];
+            }
+            ret->argc = src->argc;
+        }
+        else
+        {
+            free_command (ret);
+            return NULL;
+        }
+    }
+    else
+    {
+        ret->argv = NULL;
+        ret->protected = NULL;
+        ret->argc = 0;
+    }
+    return ret;
+}
+
+command_line *
+copy_cmd_line (const command_line *src)
+{
+    command_line *ret = new_cmd_line ();
+    if (ret == NULL)
+        return NULL;
+    ret->prev = src->prev;
+    ret->next = src->next;
+    ret->content = copy_command (src->content);
+    return ret;
+}
+
 void
-free_cmd (command_line *ptr)
+free_command (command *ptr)
 {
     if (ptr != NULL)
     {
         int cpt;
-        for (cpt = 0; cpt < ptr->content->argc; cpt++)
-            xfree (ptr->content->argv[cpt]);
-        xfree (ptr->content->argv);
-        xfree (ptr->content->cmd);
-        xfree (ptr->content->protected);
-        xfree (ptr->content);
+        for (cpt = 0; cpt < ptr->argc; cpt++)
+            xfree (ptr->argv[cpt]);
+        xfree (ptr->argv);
+        xfree (ptr->protected);
+        xfree (ptr->cmd);
+        xfree (ptr);
+    }
+}
+
+void
+free_cmd_line (command_line *ptr)
+{
+    if (ptr != NULL)
+    {
+        free_command (ptr->content);
         xfree (ptr);
     }
 }
@@ -341,12 +422,19 @@ run_line (input_line *ptr)
                 /* p should never be equal to -1 */
                 if (p != -1 && !cmd->content->builtin)
                 {
-                    waitpid (p, &ret, cmd->content->flag == BG ? WNOHANG : 0);
-                    ret_code = WEXITSTATUS(ret);
                     if (cmd->content->flag == BG)
                     {
+                        /*
                         lastcmd = xstrdup (cmd->content->cmd);
                         signal (SIGCHLD, sighandler);
+                        */
+                        ret_code = 0;
+                        enqueue_job (cmd->content);
+                    }
+                    else
+                    {
+                        waitpid (p, &ret, 0);
+                        ret_code = WEXITSTATUS(ret);
                     }
                 }
                 else if (p == -1)

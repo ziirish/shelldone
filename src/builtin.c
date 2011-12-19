@@ -44,6 +44,7 @@
 #include "xutils.h"
 #include "builtin.h"
 #include "parser.h"
+#include "jobs.h"
 
 extern int ret_code;
 
@@ -57,6 +58,20 @@ sd_exit (int argc, char **argv, int in, int out, int err)
     if (argc == 0)
         exit (ret_code);
     exit (strtoul (argv[0], NULL, 0));
+}
+
+int
+sd_jobs (int argc, char **argv, int in, int out, int err)
+{
+    (void) argc;
+    (void) argv;
+    (void) in;
+    (void) out;
+    (void) err;
+
+    list_jobs (TRUE);
+
+    return 0;
 }
 
 int

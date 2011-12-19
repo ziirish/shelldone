@@ -46,6 +46,7 @@
 #include "xutils.h"
 #include "parser.h"
 #include "command.h"
+#include "jobs.h"
 
 /**
  * XXX: is there a better way to store these variables?
@@ -56,6 +57,7 @@ static const char *fpwd = NULL;
 static input_line *l = NULL;
 static char *li = NULL;
 unsigned int interrupted = FALSE;
+unsigned int running = FALSE;
 
 static void shelldone_init (void);
 static void shelldone_clean (void);
@@ -78,6 +80,8 @@ shelldone_init (void)
     init_history ();
     /* register the cleanup function */
     atexit (shelldone_clean);
+    /* load jobs list */
+    init_jobs ();
     /* ignoring SIGINT */
     struct sigaction sa;
     sa.sa_handler = handler;
@@ -101,6 +105,7 @@ shelldone_clean (void)
     l = NULL;
     clear_command_list ();
     clear_history ();
+    clear_jobs ();
 }
 
 /**
@@ -111,7 +116,10 @@ handler (int sig)
 {
     (void) sig;
     interrupted = TRUE;
-    fprintf (stdout, "^C\n");
+    if (!running)
+        fprintf (stdout, "^C\n");
+    else
+        fprintf (stdout, "\n");
 /*    signal (SIGINT, handler);*/
 /*    shelldone_loop ();*/
 /*    exit (0);*/
@@ -175,6 +183,7 @@ shelldone_loop (void)
         li = NULL;
         l = NULL;
         const char *pt = get_prompt ();
+        list_jobs (FALSE);
         /* read the input line */
         li = read_line (pt);
         if (xstrcmp ("quit", li) == 0)
@@ -185,7 +194,9 @@ shelldone_loop (void)
         l = parse_line (li);
 /*        dump_line (l);*/
         /* execute the command-line */
+        running = TRUE;
         run_line (l);
+        running = FALSE;
 
         free_line (l);
         xfree (li);

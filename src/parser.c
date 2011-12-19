@@ -82,8 +82,6 @@ static void clear_ioctl (void);
 static char *completion (const char *prompt, char *buf, int *ind);
 static int cmpsort (const void *p1, const void *p2);
 static int reg_filter (const struct dirent *p);
-/*static void line_append (input_line **ptr, command *data);*/
-static command_line *copy_cmd (const command_line *src);
 static char get_char (const char input[5],
                       const char *prompt,
                       char **ret,
@@ -764,81 +762,12 @@ free_line (input_line *ptr)
         while (cpt < ptr->size && tmp != NULL)
         {
             command_line *tmp2 = tmp->next;
-            free_cmd (tmp);
+            free_cmd_line (tmp);
             tmp = tmp2;
             cpt++;
         }
         xfree (ptr);
     }
-}
-
-/*
-static void
-line_append (input_line **ptr, command_line *data)
-{
-    if (*ptr != NULL && data != NULL)
-    {
-        if ((*ptr)->tail == NULL)
-        {
-            (*ptr)->head = data;
-            (*ptr)->tail = data;
-            data->next = NULL;
-            data->prev = NULL;
-        }
-        else
-        {
-            (*ptr)->tail->next = data;
-            data->prev = (*ptr)->tail;
-            (*ptr)->tail = data;
-            data->next = NULL;
-        }
-        (*ptr)->size++;
-    }
-}
-*/
-
-static command_line *
-copy_cmd (const command_line *src)
-{
-    command_line *ret = new_cmd ();
-    if (ret == NULL)
-        return NULL;
-    ret->content->cmd = xstrdup (src->content->cmd);
-    ret->content->flag = src->content->flag;
-    ret->content->in = src->content->in;
-    ret->content->out = src->content->out;
-    ret->content->err = src->content->err;
-    ret->prev = src->prev;
-    ret->next = src->next;
-    ret->content->builtin = src->content->builtin;
-    ret->content->pid = src->content->pid;
-    if (src->content->argc > 0)
-    {
-        ret->content->argv = xcalloc (src->content->argc, sizeof (char *));
-        ret->content->protected = xcalloc (src->content->argc,
-                                           sizeof (Protection));
-        if (ret->content->argv != NULL && ret->content->protected != NULL)
-        {
-            int i;
-            for (i = 0; i < src->content->argc; i++)
-            {
-                ret->content->argv[i] = xstrdup (src->content->argv[i]);
-                ret->content->protected[i] = src->content->protected[i];
-            }
-            ret->content->argc = src->content->argc;
-        }
-        else
-        {
-            free_cmd (ret);
-            return NULL;
-        }
-    }
-    else
-    {
-        ret->content->argv = NULL;
-        ret->content->protected = NULL;
-    }
-    return ret;
 }
 
 void
@@ -894,7 +823,7 @@ parse_line (const char *l)
     ret->size = 0;
     ret->head = NULL;
     ret->tail = NULL;
-    curr = new_cmd ();
+    curr = new_cmd_line ();
     if (curr == NULL)
     {
         free_line (ret);
@@ -1003,7 +932,7 @@ parse_line (const char *l)
                     if (cpt + 2 > size)
                     {
                         syntax_error (l, size, cpt);
-                        free_cmd (curr);
+                        free_cmd_line (curr);
                         free_line (ret);
                         return NULL;
                     }
@@ -1013,7 +942,7 @@ parse_line (const char *l)
                         if (cpt + 3 < size && isdigit (l[cpt+3]))
                         {
                             syntax_error (l, size, cpt+3);
-                            free_cmd (curr);
+                            free_cmd_line (curr);
                             free_line (ret);
                             return NULL;
                         }
@@ -1053,7 +982,7 @@ parse_line (const char *l)
             {
                 xfree (file);
                 syntax_error (l, size, cpt);
-                free_cmd (curr);
+                free_cmd_line (curr);
                 free_line (ret);
                 return NULL;
             }
@@ -1071,7 +1000,7 @@ parse_line (const char *l)
             {
                 fprintf (stderr, "%s: %s\n", file, strerror (errno));
                 xfree (file);
-                free_cmd (curr);
+                free_cmd_line (curr);
                 free_line (ret);
                 return NULL;
             }
@@ -1147,11 +1076,11 @@ parse_line (const char *l)
         if (new_command)
         {
             new_command = 0;
-            command_line *tmp = copy_cmd (curr);
+            command_line *tmp = copy_cmd_line (curr);
             /*line_append (&ret, tmp);*/
             list_append ((sdlist **)&ret, (sddata *)tmp);
-            free_cmd (curr);
-            curr = new_cmd ();
+            free_cmd_line (curr);
+            curr = new_cmd_line ();
             if (curr == NULL)
             {
                 free_line (ret);
@@ -1165,7 +1094,7 @@ parse_line (const char *l)
                 curr->content->cmd = xmalloc (factor * BUF * sizeof (char));
                 if (curr->content->cmd == NULL)
                 {
-                    free_cmd (curr);
+                    free_cmd_line (curr);
                     free_line (ret);
                     return NULL;
                 }
@@ -1176,7 +1105,7 @@ parse_line (const char *l)
                 char *tmp = xrealloc (curr->content->cmd, factor * BUF * sizeof (char));
                 if (tmp == NULL)
                 {
-                    free_cmd (curr);
+                    free_cmd_line (curr);
                     free_line (ret);
                     return NULL;
                 }
@@ -1194,7 +1123,7 @@ parse_line (const char *l)
                 if (curr->content->argv == NULL ||
                     curr->content->protected == NULL)
                 {
-                    free_cmd (curr);
+                    free_cmd_line (curr);
                     free_line (ret);
                     return NULL;
                 }
@@ -1214,7 +1143,7 @@ parse_line (const char *l)
                                                 xmalloc (BUF * sizeof (char));
                 if (curr->content->argv[curr->content->argc] == NULL)
                 {
-                    free_cmd (curr);
+                    free_cmd_line (curr);
                     free_line (ret);
                     return NULL;
                 }
@@ -1226,7 +1155,7 @@ parse_line (const char *l)
                                       factor2 * BUF * sizeof (char));
                 if (tmp == NULL)
                 {
-                    free_cmd (curr);
+                    free_cmd_line (curr);
                     free_line (ret);
                     return NULL;
                 }
@@ -1258,7 +1187,7 @@ parse_line (const char *l)
                                    factor * ARGC * sizeof (char *));
             if (tmp == NULL)
             {
-                free_cmd (curr);
+                free_cmd_line (curr);
                 free_line (ret);
                 return NULL;
             }
@@ -1270,7 +1199,7 @@ parse_line (const char *l)
         /*line_append (&ret, curr);*/
         list_append ((sdlist **)&ret, (sddata *)curr);
     else
-        free_cmd (curr);
+        free_cmd_line (curr);
     return ret;
 }
 

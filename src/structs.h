@@ -91,10 +91,8 @@ struct _command {
     unsigned int builtin;
     /* pid of the command */
     pid_t pid;
-    /* next cmd */
-/*    command *next;*/
-    /* prev cmd */
-/*    command *prev;*/
+    /* job id */
+    int job;
 };
 
 struct _command_line {

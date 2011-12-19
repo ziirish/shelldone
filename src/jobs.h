@@ -31,56 +31,45 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
-#ifndef _COMMAND_H_
-#define _COMMAND_H_
+#ifndef _JOBS_H_
+#define _JOBS_H_
 
 #include "structs.h"
 
-/* Allocate memory for a command structure */
-command *new_command (void);
+typedef struct _jobs jobs;
+typedef struct _job job;
 
-/* Allocate memory for a command-line structure */
-command_line *new_cmd_line (void);
+struct _job
+{
+    command *content;
 
-/** 
- * Free memory used by the given command-line
- * @param ptr Command-line that must be free'ed
- */
-void free_cmd_line (command_line *ptr);
+    job *next;
+    job *prev;
+};
 
-/**
- * Free memory used by the given command
- * @param ptr Command that must be free'ed
- */
-void free_command (command *ptr);
-
-/**
- * Duplicates command-line
- * @param src Command-line to duplicate
- * @return a new allocated command_line containing the same as src
- */
-command_line *copy_cmd_line (const command_line *src);
+struct _jobs
+{
+    job *head;
+    job *tail;
+    int size;
+};
 
 /**
- * Duplicates command
- * @param src Command to duplicate
- * @return a new allocated command containing the same as src
+ * Add a job to the job's list
+ * @param ptr Command to add to the job list
  */
-command *copy_command (const command *src);
+void enqueue_job (command *ptr);
 
 /**
- * Parse the given command to separate the builtins from the rest and replace
- * the wildcards/variables/etc in order to execute in a subprocess for the
- * non-builtin commands.
- * @param ptr The command to parse
+ * List running jobs or finished jobs
+ * @param print If TRUE prints running jobs
  */
-void parse_command (command_line *ptrc);
+void list_jobs (unsigned int print);
 
-/**
- * Execute the given input_line evaluating the command returns to set the
- * apropriate viariables
- * @param ptr Input-line to run
- */
-void run_line (input_line *ptr);
+/* Initialize jobs list */
+void init_jobs (void);
+
+/* Clear jobs list */
+void clear_jobs (void);
 
 #endif
