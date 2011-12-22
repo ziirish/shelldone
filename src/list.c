@@ -35,6 +35,7 @@
 #include <unistd.h>
 
 #include "list.h"
+#include "xutils.h"
 
 void
 list_append (sdlist **ptr, sddata *data)
@@ -59,3 +60,42 @@ list_append (sdlist **ptr, sddata *data)
     }
 }
 
+void
+list_remove_id (sdlist **ptr, int idx, free_c free_content)
+{
+    if (idx < 0)
+        return;
+    sddata *tmp = (*ptr)->head;
+    int cpt = 0;
+    while (tmp != NULL && cpt < idx)
+    {
+        tmp = tmp->next;
+        cpt++;
+    }
+    if (tmp != NULL)
+    {
+        if (tmp->next == NULL && tmp->prev == NULL)
+        {
+            (*ptr)->head = NULL;
+            (*ptr)->tail = NULL;
+        }
+        else if (tmp->next == NULL)
+        {
+            (*ptr)->tail = tmp->prev;
+            (*ptr)->tail->next = NULL;
+        }
+        else if (tmp->prev == NULL)
+        {
+            (*ptr)->head = tmp->next;
+            (*ptr)->head->prev = NULL;
+        }
+        else
+        {
+            tmp->prev->next = tmp->next;
+            tmp->next->prev = tmp->prev;
+        }
+        free_content (tmp->content);
+        xfree (tmp);
+        (*ptr)->size--;
+    }
+}

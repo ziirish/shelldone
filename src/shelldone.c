@@ -51,6 +51,9 @@
 /**
  * XXX: is there a better way to store these variables?
  */
+pid_t shell_pgid;
+int shell_terminal;
+int shell_is_interactive;
 static char *prompt = NULL;
 static char *host = NULL;
 static const char *fpwd = NULL;
@@ -71,6 +74,9 @@ int ret_code;
 static void
 shelldone_init (void)
 {
+    /* See if we are running interactively */
+    shell_terminal = STDIN_FILENO;
+    shell_is_interactive = isatty (shell_terminal);
     /* get the hostname */
     host = xmalloc (30);
     gethostname (host, 30);
@@ -87,8 +93,29 @@ shelldone_init (void)
     sa.sa_handler = handler;
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = 0;
-    if (sigaction(SIGINT, &sa, NULL) != 0)
+    if (sigaction (SIGINT, &sa, NULL) != 0)
         err (3, "sigaction");
+    sa.sa_handler = SIG_IGN;
+    if (sigaction (SIGTSTP, &sa, NULL) != 0)
+        err (3, "sigaction");
+    if (shell_is_interactive)
+    {
+        /* Loop until we are in the foreground */
+        while (tcgetpgrp (shell_terminal) != (shell_pgid = getpgrp ()))
+            kill (- shell_pgid, SIGTTIN);
+        /* Ignore interactive and job-control signals */
+        /*
+        signal (SIGTTIN, SIG_IGN);
+        signal (SIGTTOU, SIG_IGN);
+        signal (SIGCHLD, SIG_IGN);
+        */
+        /* Put ourselves in our own process group */
+        shell_pgid = getpid ();
+        if (setpgid (shell_pgid, shell_pgid) < 0)
+            err (1, "Couldn't put the shell in its own process group");
+        /* Grab control of the terminal */
+        tcsetpgrp (shell_terminal, shell_pgid);
+    }
 }
 
 /* Cleanup function */
@@ -120,9 +147,6 @@ handler (int sig)
         fprintf (stdout, "^C\n");
     else
         fprintf (stdout, "\n");
-/*    signal (SIGINT, handler);*/
-/*    shelldone_loop ();*/
-/*    exit (0);*/
 }
 
 /**
@@ -179,7 +203,10 @@ shelldone_loop (void)
 {
     while (1)
     {
+        signal (SIGTSTP, SIG_IGN);
         interrupted = FALSE;
+        free_line (l);
+        xfree (li);
         li = NULL;
         l = NULL;
         const char *pt = get_prompt ();
@@ -198,8 +225,12 @@ shelldone_loop (void)
         run_line (l);
         running = FALSE;
 
+/*
         free_line (l);
         xfree (li);
+        l = NULL;
+        li = NULL;
+*/
     }
 }
 

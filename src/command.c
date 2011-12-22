@@ -34,6 +34,11 @@
 #ifndef _BSD_SOURCE
     #define _BSD_SOURCE
 #endif
+
+#ifndef _GNU_SOURCE
+        #define _GNU_SOURCE
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -50,6 +55,7 @@
 #include "jobs.h"
 
 static const builtin calls[] = {{"cd", (cmd_builtin) sd_cd},
+                                {"fg", (cmd_builtin) sd_fg},
                                 {"pwd", (cmd_builtin) sd_pwd},
                                 {"exec", (cmd_builtin) sd_exec},
                                 {"exit", (cmd_builtin) sd_exit},
@@ -59,19 +65,20 @@ static const builtin calls[] = {{"cd", (cmd_builtin) sd_cd},
                                 {NULL, NULL}};
 
 extern int ret_code;
-/*static char *lastcmd = NULL;*/
+extern pid_t shell_pgid;
+extern int shell_is_interactive;
+extern int shell_terminal;
+command *curr;
 
-/*
-static void
-sighandler (int sig)
+void
+sigstophandler (int sig)
 {
-    fprintf (stdout, "\nprogram %s exited\n", lastcmd);
-    xfree (lastcmd);
-    lastcmd = NULL;
-    signal (SIGCHLD, SIG_DFL);
+    fprintf (stdout, "\n");
+/*    signal (SIGTSTP, SIG_DFL);*/
+/*    kill (curr->pid, SIGTSTP);*/
+    enqueue_job (curr, TRUE);
     (void) sig;
 }
-*/
 
 command *
 new_command (void)
@@ -88,6 +95,7 @@ new_command (void)
         ret->out = STDOUT_FILENO;
         ret->err = STDERR_FILENO;
         ret->builtin = FALSE;
+        ret->stopped = FALSE;
         ret->pid = -1;
         ret->job = -1;
     }
@@ -121,6 +129,7 @@ copy_command (const command *src)
     ret->out = src->out;
     ret->err = src->err;
     ret->builtin = src->builtin;
+    ret->stopped = src->stopped;
     ret->pid = src->pid;
     ret->job = src->job;
     if (src->argc > 0)
@@ -160,6 +169,7 @@ copy_cmd_line (const command_line *src)
         return NULL;
     ret->prev = src->prev;
     ret->next = src->next;
+    xfree (ret->content);
     ret->content = copy_command (src->content);
     return ret;
 }
@@ -300,7 +310,9 @@ run_command (command_line *ptrc)
     if (ptrc == NULL)
         return -1;
     command *ptr = ptrc->content;
-    pid_t r = -1;
+    curr = ptr;
+    pid_t r = -1, ppid;
+    ppid = getpid ();
     if (ptr != NULL)
     {
         size_t len = xstrlen (ptr->cmd);
@@ -344,10 +356,48 @@ run_command (command_line *ptrc)
         }
         else
         {
+            signal (SIGTSTP, sigstophandler);
             r = fork ();
             if (r == 0)
             {
+                pid_t pid, pgid;
+                if (shell_is_interactive)
+                {
+                    pid = getpid ();
+                    pgid = shell_pgid;
+                    if (pgid == 0)
+                        pgid = pid;
+                    setpgid (pid, pgid);
+                    if (ptr->flag == BG)
+                        signal (SIGTSTP, SIG_IGN);
+                    else
+                    {
+                        tcsetpgrp (shell_terminal, pgid);
+                        signal (SIGTSTP, SIG_DFL);
+                    }
+                    signal (SIGTTIN, SIG_DFL);
+                    signal (SIGTTOU, SIG_DFL);
+                    signal (SIGCHLD, SIG_DFL);
+                }
+                /*
+                {
+                    struct sigaction sa;
+                    sa.sa_handler = childstophandler;
+                    sigemptyset(&sa.sa_mask);
+                    sa.sa_flags = 0;
+                    if (sigaction (SIGTSTP, &sa, NULL) != 0)
+                        err (3, "sigaction");
+                }
+                */
+                /*
                 signal (SIGINT, SIG_DFL);
+                signal (SIGTSTP, SIG_DFL);
+                signal (SIGCHLD, sighandler);
+                */
+                /*
+                signal (SIGTSTP, sighandler);
+                signal (SIGSTOP, sighandler);
+                */
                 if (ptr->in != STDIN_FILENO)
                 {
                     dup2 (ptr->in, STDIN_FILENO);
@@ -424,16 +474,12 @@ run_line (input_line *ptr)
                 {
                     if (cmd->content->flag == BG)
                     {
-                        /*
-                        lastcmd = xstrdup (cmd->content->cmd);
-                        signal (SIGCHLD, sighandler);
-                        */
                         ret_code = 0;
-                        enqueue_job (cmd->content);
+                        enqueue_job (cmd->content, FALSE);
                     }
                     else
                     {
-                        waitpid (p, &ret, 0);
+                        waitpid (p, &ret, WUNTRACED);
                         ret_code = WEXITSTATUS(ret);
                     }
                 }
@@ -462,7 +508,7 @@ run_line (input_line *ptr)
                 exec->content->pid = p;
                 if (p != -1 && !exec->content->builtin)
                 {
-                    waitpid (p, &ret, 0);
+                    waitpid (p, &ret, WUNTRACED);
                     ret_code = WEXITSTATUS(ret);
                 }
                 else if (p == -1)
@@ -477,7 +523,7 @@ run_line (input_line *ptr)
                     exec->content->pid = p;
                     if (p != -1 && !exec->content->builtin)
                     {
-                        waitpid (p, &ret, 0);
+                        waitpid (p, &ret, WUNTRACED);
                         ret_code = WEXITSTATUS(ret);
                     }
                     else if (p == -1)
@@ -525,7 +571,7 @@ run_line (input_line *ptr)
                 {
                     if (p[i] != -1 && !builtins[i])
                     {
-                        waitpid (p[i], &ret, 0);
+                        waitpid (p[i], &ret, WUNTRACED);
                         ret_code = WEXITSTATUS(ret);
                     }
                     else if (p[i] == -1)

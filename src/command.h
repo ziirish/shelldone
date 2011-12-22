@@ -83,4 +83,6 @@ void parse_command (command_line *ptrc);
  */
 void run_line (input_line *ptr);
 
+void sigstophandler (int sig);
+
 #endif

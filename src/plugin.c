@@ -53,16 +53,17 @@ sdplugin *
 sdplugin_new (void)
 {
     sdplugin *ret = xcalloc (1, sizeof (*ret));
-    ret->name = NULL;
-    ret->prio = 0;
-    ret->loaded = FALSE;
-    ret->type = 0;
-    ret->init_plugin = NULL;
-    ret->clean_plugin = NULL;
-    ret->main_plugin = NULL;
+    ret->content = xcalloc (1, sizeof (*(ret->content)));
+    ret->content->name = NULL;
+    ret->content->prio = 0;
+    ret->content->loaded = FALSE;
+    ret->content->type = 0;
+    ret->content->init_plugin = NULL;
+    ret->content->clean_plugin = NULL;
+    ret->content->main_plugin = NULL;
     ret->next = NULL;
     ret->prev = NULL;
-    ret->lib = NULL;
+    ret->content->lib = NULL;
 
     return ret;
 }
@@ -74,7 +75,7 @@ get_plugins_list (sdplist *ptr, sdplugin_type type)
     sdplugin *curr = ptr->head;
     while (curr != NULL)
     {
-        if (curr->type == type)
+        if (curr->content->type == type)
             list_append ((sdlist **)&ret, (sddata *)curr);
         curr = curr->next;
     }

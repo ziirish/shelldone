@@ -40,13 +40,46 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
+#include <sys/wait.h>
+#include <signal.h>
 
 #include "xutils.h"
 #include "builtin.h"
 #include "parser.h"
 #include "jobs.h"
+#include "command.h"
+
+#define open_filestream()              \
+    FILE *fdout, *fderr;               \
+do{                                    \
+    if (out != STDOUT_FILENO)          \
+        if (out == err)                \
+            fdout = stderr;            \
+        else                           \
+            fdout = fdopen (out, "a"); \
+    else                               \
+        fdout = stdout;                \
+    if (err == out)                    \
+        fderr = fdout;                 \
+    else if (err != STDERR_FILENO)     \
+        fderr = fdopen (err, "a");     \
+    else                               \
+        fderr = stderr;                \
+}while(0);
+
+#define close_filestream() do{              \
+    if (out != STDOUT_FILENO)               \
+        fclose (fdout);                     \
+    if (err != STDERR_FILENO && err != out) \
+        fclose (fderr);                     \
+}while(0);
+
+#define sd_print(...) fprintf(fdout,__VA_ARGS__)
+
+#define sd_printerr(...) fprintf(fderr,__VA_ARGS__)
 
 extern int ret_code;
+extern command *curr;
 
 int
 sd_exit (int argc, char **argv, int in, int out, int err)
@@ -75,6 +108,66 @@ sd_jobs (int argc, char **argv, int in, int out, int err)
 }
 
 int
+sd_fg (int argc, char **argv, int in, int out, int err)
+{
+    (void) argc;
+    (void) argv;
+    (void) in;
+
+    open_filestream ();
+
+    job *tmp = get_last_enqueued_job (TRUE);
+    if (tmp != NULL)
+    {
+        curr = tmp->content;
+        /*pid_t pid;*/
+        int status;
+        int r;
+        kill (tmp->content->pid, SIGCONT);
+        tmp->content->stopped = FALSE;
+        sd_print ("[%d]  continued %d (%s)\n",
+                  tmp->content->job,
+                  tmp->content->pid,
+                  tmp->content->cmd);
+        signal (SIGTSTP, sigstophandler);
+        /*
+        pid = fork ();
+        if (pid == 0)
+        {
+            signal (SIGTSTP, SIG_DFL);
+        */
+            r = waitpid (tmp->content->pid, &status, 0);
+            if (r != -1)
+                ret_code = WEXITSTATUS(status);
+            else
+                ret_code = 254;
+        /*
+            exit (ret_code);
+        }
+        int s, f;
+        xdebug ("on attend");
+        f = waitpid (pid, &s, 0);
+        xdebug ("fini");
+        if (f != -1)
+            ret_code = WEXITSTATUS(s);
+        else
+            ret_code = 254;
+        */
+        free_command (tmp->content);
+        xfree (tmp);
+    }
+    else
+    {
+        sd_printerr ("fg: no jobs enqeued\n");
+        ret_code = 254;
+    }
+
+    close_filestream ();
+
+    return ret_code;
+}
+
+int
 sd_rehash (int argc, char **argv, int in, int out, int err)
 {
     (void) argc;
@@ -92,44 +185,23 @@ sd_rehash (int argc, char **argv, int in, int out, int err)
 int 
 sd_pwd (int argc, char **argv, int in, int out, int err)
 {
-    FILE *fdout, *fderr;
     char *pwd;
-    
-    if (out != STDOUT_FILENO)
-        if (out == err)
-            fdout = stderr;
-        else
-            fdout = fdopen (out, "a");
-    else
-        fdout = stdout;
-    if (err == out)
-        fderr = fdout;
-    else if (err != STDERR_FILENO)
-        fderr = fdopen (err, "a");
-    else
-        fderr = stderr;
+    open_filestream ();
 
     if (argc > 0)
     {
-        fprintf (fderr, "ERROR: too many arguments\n");
-        fprintf (fderr, "usage: pwd\n");
-        if (out != STDOUT_FILENO)
-            fclose (fdout);
-        if (err != STDERR_FILENO && err != out)
-            fclose (fderr);
+        sd_printerr ("ERROR: too many arguments\n");
+        sd_printerr ("usage: pwd\n");
+        close_filestream ();
 /*        _exit (1); */
         return 1;
     }
 
     pwd = getcwd (NULL, 0);
-    fprintf (fdout, "%s\n", /*getenv ("PWD")*/pwd);
+    sd_print ("%s\n", /*getenv ("PWD")*/pwd);
     xfree (pwd);
 
-    if (out != STDOUT_FILENO)
-        fclose (fdout);
-    if (err != STDERR_FILENO && err != out)
-        fclose (fderr);
-
+    close_filestream ();
     (void) argv;
     (void) in;
 
@@ -141,10 +213,12 @@ int
 sd_cd (int argc, char **argv, int in, int out, int err)
 {
     char *target;
+    open_filestream ();
     if (argc > 1)
     {
-        fprintf (stderr, "ERROR: too many arguments\n");
-        fprintf (stderr, "usage: cd [directory]\n");
+        sd_printerr ("ERROR: too many arguments\n");
+        sd_printerr ("usage: cd [directory]\n");
+        close_filestream ();
 /*        _exit (1); */
         return 1;
     }
@@ -179,7 +253,9 @@ sd_cd (int argc, char **argv, int in, int out, int err)
     if (chdir (target) == -1)
     {
         xfree (target);
-        perror ("cd");
+        /*perror ("cd");*/
+        sd_printerr ("cd: %s\n", strerror (errno));
+        close_filestream ();
 /*        _exit (2); */
         return 2;
     }
@@ -192,6 +268,7 @@ sd_cd (int argc, char **argv, int in, int out, int err)
             setenv ("PWD", tmp, 1);
             xfree (target);
 /*            _exit (0); */
+            close_filestream ();
             return 0;
         }
         setenv ("OLDPWD", getenv ("PWD"), 1);
@@ -257,9 +334,8 @@ sd_cd (int argc, char **argv, int in, int out, int err)
     xfree (target);
 /*    _exit (0); */
     
+    close_filestream ();
     (void) in;
-    (void) out;
-    (void) err;
 
     return 0;
 }

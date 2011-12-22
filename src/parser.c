@@ -74,7 +74,11 @@ static int last_history = 0, curr_history;
 static char **command_list = NULL;
 static int nb_commands = 0;
 static struct termios in_save;
+
 extern unsigned int interrupted;
+extern pid_t shell_pgid;
+extern int shell_terminal;
+extern int shell_is_interactive;
 
 /* static functions */
 static void init_ioctl (void);
@@ -226,21 +230,32 @@ init_ioctl (void)
 {
     struct termios term;
 
-    if (ioctl (STDIN_FILENO, TCGETS, &term) != 0)
-        err (3, "\nioctl G prob");
-    in_save = term;
-    term.c_lflag &= ~(ECHO | ICANON);
-    term.c_cc[VMIN] = 1;
-    term.c_cc[VTIME] = 0;
-    if (ioctl (STDIN_FILENO, TCSETS, &term) != 0)
-        err (3, "\nioctl S prob");
+    if (shell_is_interactive)
+    {
+
+        if (ioctl (shell_terminal, TCGETS, &term) != 0)
+            err (3, "\nioctl G prob");
+        in_save = term;
+        term.c_lflag &= ~(ECHO | ICANON);
+        term.c_cc[VMIN] = 1;
+        term.c_cc[VTIME] = 0;
+        if (ioctl (shell_terminal, TCSETS, &term) != 0)
+            err (3, "\nioctl S prob");
+    }
+    else
+    {
+        xdebug ("noninteractive");
+    }
 }
 
 static void
 clear_ioctl (void)
 {
-    if (ioctl (STDIN_FILENO, TCSETS, &in_save) != 0)
-        err (3, "\nioctl S prob");
+    if (shell_is_interactive)
+    {
+        if (ioctl (shell_terminal, TCSETS, &in_save) != 0)
+            err (3, "\nioctl S prob");
+    }
 }
 
 static char *
@@ -1077,7 +1092,6 @@ parse_line (const char *l)
         {
             new_command = 0;
             command_line *tmp = copy_cmd_line (curr);
-            /*line_append (&ret, tmp);*/
             list_append ((sdlist **)&ret, (sddata *)tmp);
             free_cmd_line (curr);
             curr = new_cmd_line ();
@@ -1196,7 +1210,6 @@ parse_line (const char *l)
         curr->content->argv[curr->content->argc] = NULL;
     }  
     if (curr->content->cmd != NULL)
-        /*line_append (&ret, curr);*/
         list_append ((sdlist **)&ret, (sddata *)curr);
     else
         free_cmd_line (curr);
@@ -1333,10 +1346,10 @@ read_line (const char *prompt)
     do
     {
         memset (in, 0, 5);
-        sh_read (STDIN_FILENO, &in, 5);
+        sh_read (shell_terminal, &in, 5);
         c = get_char (in, prompt, &ret, &cpt, &ind);
     } while (c == -1);
-    while (c != '\n' || 
+    while ((c != '\n' && c != EOF) ||
            (c == '\n' && (squote || dquote)) || 
            nb_lines != antislashes)
     {
@@ -1361,7 +1374,7 @@ read_line (const char *prompt)
             do
             {
                 memset (in, 0, 5);
-                sh_read (STDIN_FILENO, &in, 5);
+                sh_read (shell_terminal, &in, 5);
                 c = get_char (in, prompt, &ret, &cpt, &ind);
             } while (c == -1);
             continue;
@@ -1386,7 +1399,7 @@ read_line (const char *prompt)
             do
             {
                 memset (tmp, 0, 5);
-                sh_read (STDIN_FILENO, &tmp, 5);
+                sh_read (shell_terminal, &tmp, 5);
                 ctmp = get_char (tmp, prompt, &ret, &cpt, &ind);
             } while (ctmp == -1);
             if (ctmp == '\n')
@@ -1404,7 +1417,7 @@ read_line (const char *prompt)
             do
             {
                 memset (in, 0, 5);
-                sh_read (STDIN_FILENO, &in, 5);
+                sh_read (shell_terminal, &in, 5);
                 c = get_char (in, prompt, &ret, &cpt, &ind);
             } while (c == -1);
             nb_lines++;
@@ -1437,7 +1450,7 @@ replay:
         do
         {
             memset (in, 0, 5);
-            sh_read (STDIN_FILENO, &in, 5);
+            sh_read (shell_terminal, &in, 5);
             c = get_char (in, prompt, &ret, &cpt, &ind);
         } while (c == -1);
     }

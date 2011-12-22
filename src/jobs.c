@@ -48,7 +48,8 @@
 #include "command.h"
 #include "list.h"
 
-static jobs *list;
+static jobs *list = NULL;
+static job *last = NULL;
 
 static void
 clear_job (job *ptr)
@@ -113,12 +114,21 @@ generate_job_number (void)
 }
 
 void
-enqueue_job (command *ptr)
+enqueue_job (command *ptr, unsigned int stopped)
 {
     job *tmp = new_job (ptr);
     tmp->content->job = generate_job_number ();
+    tmp->content->stopped = stopped;
     list_append ((sdlist **)&list, (sddata *)tmp);
-    fprintf (stdout, "[%d] %d (%s)\n", tmp->content->job, ptr->pid, ptr->cmd);
+    if (stopped)
+    {
+        fprintf (stdout, "[%d] %d (%s) stopped\n", 
+                         tmp->content->job, ptr->pid, ptr->cmd);
+        last = tmp;
+    }
+    else
+        fprintf (stdout, "[%d] %d (%s)\n",
+                         tmp->content->job, ptr->pid, ptr->cmd);
 }
 
 static int
@@ -156,61 +166,37 @@ get_job (int i)
 static void
 remove_job (int i)
 {
-    if (i < 0)
-        return;
-    job *tmp = list->head;
-    int cpt = 0;
-    while (tmp != NULL && cpt < i)
-    {
-        tmp = tmp->next;
-        cpt++;
-    }
-    if (tmp != NULL)
-    {
-        if (tmp->next == NULL && tmp->prev == NULL)
-        {
-            list->head = NULL;
-            list->tail = NULL;
-        }
-        else if (tmp->next == NULL)
-        {
-            list->tail = tmp->prev;
-            list->tail->next = NULL;
-        }
-        else if (tmp->prev == NULL)
-        {
-            list->head = tmp->next;
-            list->head->prev = NULL;
-        }
-        else
-        {
-            tmp->prev->next = tmp->next;
-            tmp->next->prev = tmp->prev;
-        }
-        free_command (tmp->content);
-        xfree (tmp);
-        list->size--;
-    }
+    list_remove_id ((sdlist **)&list, i, (free_c)free_command);
 }
 
 static unsigned int
-is_job_done (pid_t pid)
+is_job_done (pid_t pid, unsigned int print)
 {
     int status;
-    pid_t p = waitpid (pid, &status, WNOHANG);
+    int idx = index_of (pid);
+    job *j = get_job (idx);
+    pid_t p = waitpid (pid, &status, WNOHANG|WUNTRACED);
     if (p == -1)
     {
-        int idx = index_of (pid);
+        warn ("jobs [%d] %d (%s)", j->content->job,
+                                   j->content->pid,
+                                   j->content->cmd);
         remove_job (idx);
-        warn ("jobs");
+        return TRUE;
+    }
+    if (j->content->stopped && print)
+    {
+        fprintf (stdout, "[%d]  + %d (%s) stopped\n",
+                         j->content->job,
+                         pid,
+                         j->content->cmd);
+        /* well, it's a lie but we don't want to print it twice */
         return TRUE;
     }
     if (p == 0)
         return FALSE;
     if (WIFEXITED(status) != 0)
     {
-        int idx = index_of (pid);
-        job *j = get_job (idx);
         fprintf (stdout, "[%d]  + %d (%s) terminated with status code %d\n",
                          j->content->job,
                          pid,
@@ -221,8 +207,6 @@ is_job_done (pid_t pid)
     }
     else if (WIFSIGNALED(status) != 0)
     {
-        int idx = index_of (pid);
-        job *j = get_job (idx);
         int sig = WTERMSIG(status);
         fprintf (stdout, "[%d]  + %d (%s) interrupted by signal %d (%s)\n",
                          j->content->job,
@@ -236,6 +220,35 @@ is_job_done (pid_t pid)
     return FALSE;
 }
 
+job *
+get_job_by_job (int j)
+{
+    job *tmp = list->head;
+    while (tmp != NULL)
+    {
+        if (tmp->content->job == j)
+            break;
+        tmp = tmp->next;
+    }
+    return tmp;
+}
+
+job *
+get_last_enqueued_job (unsigned int flush)
+{
+    job *ret;
+    if (flush && last != NULL)
+    {
+        ret = new_job (last->content);
+        int idx = index_of (last->content->pid);
+        remove_job (idx);
+        last = NULL;
+    }
+    else
+        ret = last;
+    return ret;
+}
+
 void
 list_jobs (unsigned int print)
 {
@@ -243,7 +256,7 @@ list_jobs (unsigned int print)
     while (tmp != NULL)
     {
         job *tmp2 = tmp->next;
-        if (!is_job_done (tmp->content->pid) && print)
+        if (!is_job_done (tmp->content->pid, print) && print)
             fprintf (stdout, "[%d]  + %d (%s) running\n",
                              tmp->content->job,
                              tmp->content->pid,

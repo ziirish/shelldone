@@ -34,22 +34,36 @@
 #ifndef _LIST_H_
 #define _LIST_H_
 
+/* Signature of the free_content function */
+typedef void (* free_c) (void *content);
 
+/* Signature of an evaluation function for contents comparisons */
+typedef int (* eval_c) (void *c1, void *c2);
+
+/* Double-linked list */
 typedef struct _sdlist sdlist;
+
+/* Element of a double-linked list */
 typedef struct _sddata sddata;
 
 struct _sddata
 {
+    /* content of an element */
     void *content;
 
+    /* next element */
     sddata *next;
+    /* previous element */
     sddata *prev;
 };
 
 struct _sdlist
 {
+    /* first element of the list */
     sddata *head;
+    /* last element of the list */
     sddata *tail;
+    /* size of the list */
     int size;
 };
 
@@ -59,5 +73,14 @@ struct _sdlist
  * @param data Element to append to the given list
  */
 void list_append (sdlist **ptr, sddata *data);
+
+/**
+ * Remove an element by id
+ * @param ptr The list in which we remove an element
+ * @param idx The id of the element we want to remove
+ * @param free_content The callback function to free the content of the element
+ * we remove
+ */
+void list_remove_id (sdlist **ptr, int idx, free_c free_content);
 
 #endif

@@ -58,7 +58,7 @@ struct _jobs
  * Add a job to the job's list
  * @param ptr Command to add to the job list
  */
-void enqueue_job (command *ptr);
+void enqueue_job (command *ptr, unsigned int stopped);
 
 /**
  * List running jobs or finished jobs
@@ -71,5 +71,9 @@ void init_jobs (void);
 
 /* Clear jobs list */
 void clear_jobs (void);
+
+job *get_job_by_job (int j);
+
+job *get_last_enqueued_job (unsigned int flush);
 
 #endif

@@ -89,6 +89,8 @@ struct _command {
     int oflag;
     /* is it a builtin command */
     unsigned int builtin;
+    /* is the process stopped */
+    unsigned int stopped;
     /* pid of the command */
     pid_t pid;
     /* job id */
