@@ -153,4 +153,12 @@ void syntax_error (const char input[], int size, int ind);
  */
 char *xstrsub (const char *src, int begin, int len);
 
+#define xdebug(...) xadebug(__FILE__,__PRETTY_FUNCTION__,__LINE__,__VA_ARGS__)
+
+void xadebug (const char *file,
+              const char *func,
+              int line,
+              const char *format,
+              ...);
+
 #endif
