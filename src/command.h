@@ -83,6 +83,10 @@ void parse_command (command_line *ptrc);
  */
 void run_line (input_line *ptr);
 
+/**
+ * Signal handler for SIGTSTP
+ * @param sig Signal received
+ */
 void sigstophandler (int sig);
 
 #endif

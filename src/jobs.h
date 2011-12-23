@@ -72,8 +72,21 @@ void init_jobs (void);
 /* Clear jobs list */
 void clear_jobs (void);
 
+/**
+ * Get a job by its job id
+ * @param j The job id
+ * @return The job corresponding to this job id
+ */
 job *get_job_by_job (int j);
 
-job *get_last_enqueued_job (unsigned int flush);
+/**
+ * Return the last enqueued job that has been stopped by SIGTSTP (^Z)
+ * @param flush If TRUE, remove the job from the job queue (when we continue it
+ * in foreground for instance)
+ * @return The last job enqueued
+ */
+command *get_last_enqueued_job (unsigned int flush);
+
+void clear_job (job *ptr);
 
 #endif

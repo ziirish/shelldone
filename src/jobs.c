@@ -51,11 +51,16 @@
 static jobs *list = NULL;
 static job *last = NULL;
 
-static void
+void
 clear_job (job *ptr)
 {
+    xdebug (NULL);
     if (ptr != NULL)
     {
+        xdebug ("[%d] %d (%s)",
+                ptr->content->job,
+                ptr->content->pid,
+                ptr->content->cmd);
         free_command (ptr->content);
         xfree (ptr);
     }
@@ -233,19 +238,23 @@ get_job_by_job (int j)
     return tmp;
 }
 
-job *
+command *
 get_last_enqueued_job (unsigned int flush)
 {
-    job *ret;
+    command *ret;
     if (flush && last != NULL)
     {
-        ret = new_job (last->content);
+        xdebug ("cloning job [%d] %d (%s)",
+                last->content->job,
+                last->content->pid,
+                last->content->cmd);
+        ret = copy_command (last->content);
         int idx = index_of (last->content->pid);
         remove_job (idx);
         last = NULL;
     }
     else
-        ret = last;
+        ret = last->content;
     return ret;
 }
 

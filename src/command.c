@@ -47,6 +47,7 @@
 #include <sys/wait.h>
 #include <signal.h>
 #include <string.h>
+#include <setjmp.h>
 
 #include "builtin.h"
 #include "command.h"
@@ -68,7 +69,10 @@ extern int ret_code;
 extern pid_t shell_pgid;
 extern int shell_is_interactive;
 extern int shell_terminal;
-command *curr;
+extern unsigned int interrupted;
+extern sigjmp_buf env;
+extern int val;
+command *curr = NULL;
 
 void
 sigstophandler (int sig)
@@ -77,6 +81,13 @@ sigstophandler (int sig)
 /*    signal (SIGTSTP, SIG_DFL);*/
 /*    kill (curr->pid, SIGTSTP);*/
     enqueue_job (curr, TRUE);
+    interrupted = TRUE;
+    if (curr->continued)
+    {
+        free_command (curr);
+        curr = NULL;
+        siglongjmp (env, val);
+    }
     (void) sig;
 }
 
@@ -96,6 +107,7 @@ new_command (void)
         ret->err = STDERR_FILENO;
         ret->builtin = FALSE;
         ret->stopped = FALSE;
+        ret->continued = FALSE;
         ret->pid = -1;
         ret->job = -1;
     }
@@ -130,6 +142,7 @@ copy_command (const command *src)
     ret->err = src->err;
     ret->builtin = src->builtin;
     ret->stopped = src->stopped;
+    ret->continued = src->continued;
     ret->pid = src->pid;
     ret->job = src->job;
     if (src->argc > 0)
@@ -174,6 +187,28 @@ copy_cmd_line (const command_line *src)
     return ret;
 }
 
+int
+compare_command (command *c1, command *c2)
+{
+    int ret = 0;
+    if (c1 != NULL && c2 != NULL)
+    {
+        int c, d;
+        if ((c = xstrcmp (c1->cmd, c2->cmd)) != 0)
+            return c;
+        if (c1->argc != c2->argc)
+            return (c1->argc - c2->argc);
+        for (c = 0; c < c1->argc; c++)
+        {
+            if ((d = xstrcmp (c1->argv[c], c2->argv[c])) != 0)
+                return d;
+            if (c1->protected[c] != c2->protected[c])
+                return (c1->protected[c] - c2->protected[c]);
+        }
+    }
+    return ret;
+}
+
 void
 free_command (command *ptr)
 {
@@ -186,6 +221,7 @@ free_command (command *ptr)
         xfree (ptr->protected);
         xfree (ptr->cmd);
         xfree (ptr);
+        ptr = NULL;
     }
 }
 

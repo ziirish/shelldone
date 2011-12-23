@@ -62,7 +62,7 @@
 #define sh_read(fileno,buf,size) do{\
 interrupted = FALSE;\
 read (fileno,buf,size);\
-if (interrupted && errno == EINTR)\
+if (interrupted)\
 {\
     goto exit;\
 }\

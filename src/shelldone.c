@@ -42,6 +42,7 @@
 #include <sys/wait.h>
 #include <signal.h>
 #include <err.h>
+#include <setjmp.h>
 
 #include "xutils.h"
 #include "parser.h"
@@ -61,6 +62,8 @@ static input_line *l = NULL;
 static char *li = NULL;
 unsigned int interrupted = FALSE;
 unsigned int running = FALSE;
+sigjmp_buf env;
+int val;
 
 static void shelldone_init (void);
 static void shelldone_clean (void);
@@ -204,6 +207,7 @@ shelldone_loop (void)
     while (1)
     {
         signal (SIGTSTP, SIG_IGN);
+        val = sigsetjmp (env, TRUE);
         interrupted = FALSE;
         free_line (l);
         xfree (li);

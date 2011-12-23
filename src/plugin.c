@@ -69,7 +69,7 @@ sdplugin_new (void)
 }
 
 sdplist*
-get_plugins_list (sdplist *ptr, sdplugin_type type)
+get_plugins_list_by_type (sdplist *ptr, sdplugin_type type)
 {
     sdplist *ret = sdplist_new ();
     sdplugin *curr = ptr->head;

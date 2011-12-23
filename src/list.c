@@ -99,3 +99,82 @@ list_remove_id (sdlist **ptr, int idx, free_c free_content)
         (*ptr)->size--;
     }
 }
+
+int *
+list_get_all_id (sdlist *ptr, void *content, eval_c eval_content)
+{
+    int *ret = NULL;
+    if (ptr != NULL)
+    {
+        sddata *tmp = ptr->head;
+        int cpt = 0;
+        while (tmp != NULL)
+        {
+            if (eval_content (tmp->content, content) == 0)
+                cpt++;
+            tmp = tmp->next;
+        }
+        if (cpt > 0)
+        {
+            int i = 0, j = 0;
+            ret = xcalloc (cpt + 1, sizeof (int));
+            tmp = ptr->head;
+            while (tmp != NULL)
+            {
+                if (eval_content (tmp->content, content) == 0)
+                {
+                    ret[i] = j;
+                    i++;
+                }
+                tmp = tmp->next;
+                j++;
+            }
+            ret[i] = -1;
+        }
+    }
+    return ret;
+}
+
+int
+list_get_id (sdlist *ptr,
+             void *content,
+             eval_c eval_content,
+             unsigned int last)
+{
+    int ret = -1;
+    if (ptr != NULL)
+    {
+        sddata *tmp = last ? ptr->tail : ptr->head;
+        int cpt = 0;
+        while (tmp != NULL)
+        {
+            if (eval_content (tmp->content, content) == 0)
+            {
+                ret = cpt;
+                break;
+            }
+            tmp = last ? tmp->prev : tmp->next;
+            cpt++;
+        }
+    }
+    return ret;
+}
+
+sddata *
+list_get_data_by_id (sdlist *ptr, int id)
+{
+    sddata *ret = NULL;
+    if (ptr != NULL)
+    {
+        int cpt = 0;
+        ret = ptr->head;
+        while (ret != NULL && cpt < id)
+        {
+            ret = ret->next;
+            cpt++;
+        }
+        if (cpt < id)
+            return NULL;
+    }
+    return ret;
+}

@@ -49,22 +49,20 @@
 #include "jobs.h"
 #include "command.h"
 
-#define open_filestream()              \
-    FILE *fdout, *fderr;               \
-do{                                    \
-    if (out != STDOUT_FILENO)          \
-        if (out == err)                \
-            fdout = stderr;            \
-        else                           \
-            fdout = fdopen (out, "a"); \
-    else                               \
-        fdout = stdout;                \
-    if (err == out)                    \
-        fderr = fdout;                 \
-    else if (err != STDERR_FILENO)     \
-        fderr = fdopen (err, "a");     \
-    else                               \
-        fderr = stderr;                \
+#define open_filestream()                  \
+    FILE *fdout = stdout, *fderr = stderr; \
+do{                                        \
+    if (out != STDOUT_FILENO)              \
+        if (out == err)                    \
+            fdout = fderr;                 \
+        else                               \
+            fdout = fdopen (out, "a");     \
+    else                                   \
+        fdout = stdout;                    \
+    if (err != STDERR_FILENO)              \
+        fderr = fdopen (err, "a");         \
+    else                                   \
+        fderr = stderr;                    \
 }while(0);
 
 #define close_filestream() do{              \
@@ -116,45 +114,30 @@ sd_fg (int argc, char **argv, int in, int out, int err)
 
     open_filestream ();
 
-    job *tmp = get_last_enqueued_job (TRUE);
+    command *tmp = get_last_enqueued_job (TRUE);
     if (tmp != NULL)
     {
-        curr = tmp->content;
-        /*pid_t pid;*/
         int status;
         int r;
-        kill (tmp->content->pid, SIGCONT);
-        tmp->content->stopped = FALSE;
+        kill (tmp->pid, SIGCONT);
+        tmp->stopped = FALSE;
+        tmp->continued = TRUE;
         sd_print ("[%d]  continued %d (%s)\n",
-                  tmp->content->job,
-                  tmp->content->pid,
-                  tmp->content->cmd);
+                  tmp->job,
+                  tmp->pid,
+                  tmp->cmd);
         signal (SIGTSTP, sigstophandler);
-        /*
-        pid = fork ();
-        if (pid == 0)
-        {
-            signal (SIGTSTP, SIG_DFL);
-        */
-            r = waitpid (tmp->content->pid, &status, 0);
-            if (r != -1)
-                ret_code = WEXITSTATUS(status);
-            else
-                ret_code = 254;
-        /*
-            exit (ret_code);
-        }
-        int s, f;
-        xdebug ("on attend");
-        f = waitpid (pid, &s, 0);
-        xdebug ("fini");
-        if (f != -1)
-            ret_code = WEXITSTATUS(s);
+        curr = tmp;
+
+        pid_t p = tmp->pid;
+
+        r = waitpid (p, &status, 0);
+        if (r != -1)
+            ret_code = WEXITSTATUS(status);
         else
             ret_code = 254;
-        */
-        free_command (tmp->content);
-        xfree (tmp);
+
+        free_command (tmp);
     }
     else
     {

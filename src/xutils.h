@@ -155,6 +155,14 @@ char *xstrsub (const char *src, int begin, int len);
 
 #define xdebug(...) xadebug(__FILE__,__PRETTY_FUNCTION__,__LINE__,__VA_ARGS__)
 
+/**
+ * Prints a debug message if the DEBUG flag is enabled at the compilation time
+ * @param file Which source-file calls the function
+ * @param func In which function
+ * @param line At which line
+ * @param format The format message we'd like to print
+ * @param ... optional arguments to pass to the format string
+ */
 void xadebug (const char *file,
               const char *func,
               int line,

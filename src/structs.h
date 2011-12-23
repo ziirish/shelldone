@@ -91,6 +91,8 @@ struct _command {
     unsigned int builtin;
     /* is the process stopped */
     unsigned int stopped;
+    /* received SIGCONT */
+    unsigned int continued;
     /* pid of the command */
     pid_t pid;
     /* job id */
