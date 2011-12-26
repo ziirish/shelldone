@@ -94,7 +94,8 @@ list_remove_id (sdlist **ptr, int idx, free_c free_content)
             tmp->prev->next = tmp->next;
             tmp->next->prev = tmp->prev;
         }
-        free_content (tmp->content);
+        if (free_content != NULL)
+            free_content (tmp->content);
         xfree (tmp);
         (*ptr)->size--;
     }

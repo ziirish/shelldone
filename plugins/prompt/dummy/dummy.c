@@ -5,8 +5,16 @@
 #include <sdlib/plugin.h>
 
 void
-sd_plugin_init (sdplugin *plugin)
+sd_plugin_init (sdplugindata *plugin)
 {
-    (void) plugin;
-    return;
+    plugin->name = "dummy";
+    plugin->type = PROMPT;
+    plugin->prio = 1;
+}
+
+void
+sd_plugin_main (void)
+{
+    fprintf (stdout, "$ ");
+    fflush (stdout);
 }

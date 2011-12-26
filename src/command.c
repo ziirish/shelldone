@@ -56,11 +56,13 @@
 #include "jobs.h"
 
 static const builtin calls[] = {{"cd", (cmd_builtin) sd_cd},
+                                {"bg", (cmd_builtin) sd_bg},
                                 {"fg", (cmd_builtin) sd_fg},
                                 {"pwd", (cmd_builtin) sd_pwd},
                                 {"exec", (cmd_builtin) sd_exec},
                                 {"exit", (cmd_builtin) sd_exit},
                                 {"jobs", (cmd_builtin) sd_jobs},
+                                {"module", (cmd_builtin) sd_module},
                                 {"rehash", (cmd_builtin) sd_rehash},
 /*                              {"echo", (cmd_builtin) sd_echo}, */
                                 {NULL, NULL}};

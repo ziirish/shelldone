@@ -1,13 +1,13 @@
 CC=gcc
-CFLAGS=-std=c89 -Wall -Werror -W -g #-DDEBUG
-LDFLAGS=
+CFLAGS=-std=c89 -Wall -Werror -W -g -rdynamic -DDEBUG
+LDFLAGS=-ldl
 SOURCES=$(wildcard *.c)
 OBJECTS=$(SOURCES:.c=.o)
 EXECUTABLE=shelldone
 .PHONY: clean
 
 $(EXECUTABLE): $(OBJECTS)
-	$(CC) $(LDFLAGS) $(OBJECTS) -o $@
+	$(CC) $(CFLAGS) $(LDFLAGS) $(OBJECTS) -o $@
 
 clean:
 	rm $(OBJECTS) $(EXECUTABLE)

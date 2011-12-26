@@ -31,8 +31,10 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
-#ifndef __LIB_PLUGIN_H__
-#define __LIB_PLUGIN_H__
+#ifndef _LIB_PLUGIN_H_
+#define _LIB_PLUGIN_H_
+
+#define SDPLDIR "../plugins"
 
 typedef struct _sdplugin sdplugin;
 typedef struct _sdplist sdplist;
@@ -42,7 +44,8 @@ typedef enum
 {
     PROMPT = 1,
     PARSING,
-    BUILTIN
+    BUILTIN,
+    UNKNOWN
 } sdplugin_type;
 
 struct _sdplugindata
@@ -52,9 +55,9 @@ struct _sdplugindata
     unsigned int loaded;
     sdplugin_type type;
 
-    void (*init_plugin) (sdplugin *plugin);
-    void (*clean_plugin) (sdplugin *plugin);
-    void (*main_plugin) (void);
+    void (*init) (sdplugindata *plugin);
+    void (*clean) (void);
+    void (*main) (void);
 
     void *lib;
 };

@@ -54,13 +54,14 @@ static job *last = NULL;
 void
 clear_job (job *ptr)
 {
-    xdebug (NULL);
     if (ptr != NULL)
     {
+        /*
         xdebug ("[%d] %d (%s)",
                 ptr->content->job,
                 ptr->content->pid,
                 ptr->content->cmd);
+        */
         free_command (ptr->content);
         xfree (ptr);
     }
@@ -69,6 +70,7 @@ clear_job (job *ptr)
 void
 init_jobs (void)
 {
+    xdebug (NULL);
     list = xmalloc (sizeof (*list));
     if (list != NULL)
     {
@@ -81,6 +83,7 @@ init_jobs (void)
 void
 clear_jobs (void)
 {
+    xdebug (NULL);
     job *tmp = list->head;
     while (tmp != NULL)
     {
@@ -127,7 +130,7 @@ enqueue_job (command *ptr, unsigned int stopped)
     list_append ((sdlist **)&list, (sddata *)tmp);
     if (stopped)
     {
-        fprintf (stdout, "[%d] %d (%s) stopped\n", 
+        fprintf (stdout, "[%d] %d (%s) suspended\n",
                          tmp->content->job, ptr->pid, ptr->cmd);
         last = tmp;
     }
@@ -191,7 +194,7 @@ is_job_done (pid_t pid, unsigned int print)
     }
     if (j->content->stopped && print)
     {
-        fprintf (stdout, "[%d]  + %d (%s) stopped\n",
+        fprintf (stdout, "[%d]  + %d (%s) suspended\n",
                          j->content->job,
                          pid,
                          j->content->cmd);
@@ -202,7 +205,7 @@ is_job_done (pid_t pid, unsigned int print)
         return FALSE;
     if (WIFEXITED(status) != 0)
     {
-        fprintf (stdout, "[%d]  + %d (%s) terminated with status code %d\n",
+        fprintf (stdout, "[%d]  + %d (%s) done. Returned %d\n",
                          j->content->job,
                          pid,
                          j->content->cmd,
@@ -213,7 +216,7 @@ is_job_done (pid_t pid, unsigned int print)
     else if (WIFSIGNALED(status) != 0)
     {
         int sig = WTERMSIG(status);
-        fprintf (stdout, "[%d]  + %d (%s) interrupted by signal %d (%s)\n",
+        fprintf (stdout, "[%d]  + %d (%s) interrupted. Signal %d (%s)\n",
                          j->content->job,
                          pid,
                          j->content->cmd,

@@ -83,4 +83,34 @@ void list_append (sdlist **ptr, sddata *data);
  */
 void list_remove_id (sdlist **ptr, int idx, free_c free_content);
 
+/**
+ * Return a list of id of a given content
+ * @param ptr List in which we search content
+ * @param content Element we search in the list
+ * @param eval_content Callback that compares 2 contents
+ * @return a list of id
+ */
+int *list_get_all_id (sdlist *ptr, void *content, eval_c eval_content);
+
+/**
+ * Return the first/last id of a given content
+ * @param ptr The list in which we search content
+ * @param content Element we search in the list
+ * @param eval_content Callback that compares 2 content
+ * @param last If TRUE search starting by the end of the list
+ * @return The id
+ */
+int list_get_id (sdlist *ptr,
+                 void *content,
+                 eval_c eval_content,
+                 unsigned int last);
+
+/**
+ * Return the element corresponding to the given id
+ * @param ptr List in which we want an element
+ * @param id ID of the element
+ * @return The element
+ */
+sddata *list_get_data_by_id (sdlist *ptr, int id);
+
 #endif

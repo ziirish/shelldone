@@ -70,6 +70,28 @@ int sd_exit (int argc, char **argv, int in, int out, int err);
 int sd_jobs (int argc, char **argv, int in, int out, int err);
 
 /**
+ * Builtin command to manage modules
+ * @param argc Number of arguments passed to the command
+ * @param argv Array of strings containing the arguments passed to the command
+ * @param in Descriptor of the standard input
+ * @param out Descriptor of the standard output
+ * @param err Descriptor of the standard error output
+ * @return 0 if the command succeed, non-zero if not
+ */
+int sd_module (int argc, char **argv, int in, int out, int err);
+
+/**
+ * Builtin command to continue a stopped job in background
+ * @param argc Number of arguments passed to the command
+ * @param argv Array of strings containing the arguments passed to the command
+ * @param in Descriptor of the standard input
+ * @param out Descriptor of the standard output
+ * @param err Descriptor of the standard error output
+ * @return 0 if the command succeed, non-zero if not
+ */
+int sd_bg (int argc, char **argv, int in, int out, int err);
+
+/**
  * Builtin command to continue a stopped job in foreground
  * @param argc Number of arguments passed to the command
  * @param argv Array of strings containing the arguments passed to the command

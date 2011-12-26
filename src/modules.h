@@ -31,67 +31,46 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
-#ifndef _JOBS_H_
-#define _JOBS_H_
+#ifndef _MODULES_H_
+#define _MODULES_H_
 
-#include "structs.h"
+#include "sdlib/plugin.h"
 
-typedef struct _jobs jobs;
-typedef struct _job job;
+/* Initialize modules list */
+void init_modules (void);
 
-/* A job is simply a command */
-struct _job
-{
-    command *content;
-
-    job *next;
-    job *prev;
-};
-
-struct _jobs
-{
-    job *head;
-    job *tail;
-    int size;
-};
+/* Clear modules list */
+void clear_modules (void);
 
 /**
- * Add a job to the job's list
- * @param ptr Command to add to the job list
+ * Execute each main function of the modules present in the list
+ * @param list List of modules
  */
-void enqueue_job (command *ptr, unsigned int stopped);
+void launch_each_module (sdplist *list);
 
 /**
- * List running jobs or finished jobs
- * @param print If TRUE prints running jobs
+ * Give a list of loaded modules by type
+ * @param type Type of the moduless we are looking for
+ * @return A list of modules of given type or NULL
  */
-void list_jobs (unsigned int print);
-
-/* Initialize jobs list */
-void init_jobs (void);
-
-/* Clear jobs list */
-void clear_jobs (void);
+sdplist *get_modules_list_by_type (sdplugin_type type);
 
 /**
- * Get a job by its job id
- * @param j The job id
- * @return The job corresponding to this job id
+ * Unload a module based on its name
+ * @param name Name of the module we want to unload
  */
-job *get_job_by_job (int j);
+void unload_module_by_name (const char *name);
 
 /**
- * Return the last enqueued job that has been stopped by SIGTSTP (^Z)
- * @param flush If TRUE, remove the job from the job queue (when we continue it
- * in foreground for instance)
- * @return The last job enqueued
+ * Unload a module
+ * @param ptr Module to unload
  */
-command *get_last_enqueued_job (unsigned int flush);
+void unload_module (sdplugindata *ptr);
 
 /**
- * Clear a job
- * @param ptr Job to clear
+ * Load a module
+ * @param path Path of the module to load
  */
-void clear_job (job *ptr);
+void load_module (const char *path);
 
 #endif

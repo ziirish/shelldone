@@ -48,6 +48,7 @@
 #include "parser.h"
 #include "command.h"
 #include "jobs.h"
+#include "modules.h"
 
 /**
  * XXX: is there a better way to store these variables?
@@ -67,7 +68,7 @@ int val;
 
 static void shelldone_init (void);
 static void shelldone_clean (void);
-static void handler (int signal);
+static void siginthandler (int signal);
 static const char *get_prompt (void);
 static void shelldone_loop (void);
 
@@ -77,23 +78,26 @@ int ret_code;
 static void
 shelldone_init (void)
 {
+    xdebug (NULL);
     /* See if we are running interactively */
     shell_terminal = STDIN_FILENO;
     shell_is_interactive = isatty (shell_terminal);
     /* get the hostname */
     host = xmalloc (30);
     gethostname (host, 30);
-    /* load the commands list */
+    /* initialiaze commands list */
     init_command_list ();
-    /* load the history */
+    /* initialize history */
     init_history ();
     /* register the cleanup function */
     atexit (shelldone_clean);
-    /* load jobs list */
+    /* initialize jobs list */
     init_jobs ();
-    /* ignoring SIGINT */
+    /* initialize modules list */
+    init_modules ();
+    /* ignoring SIGTSTP + handling SIGINT */
     struct sigaction sa;
-    sa.sa_handler = handler;
+    sa.sa_handler = siginthandler;
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = 0;
     if (sigaction (SIGINT, &sa, NULL) != 0)
@@ -125,6 +129,7 @@ shelldone_init (void)
 static void
 shelldone_clean (void)
 {
+    xdebug (NULL);
     xfree (li);
     xfree (host);
     xfree (prompt);
@@ -136,13 +141,14 @@ shelldone_clean (void)
     clear_command_list ();
     clear_history ();
     clear_jobs ();
+    clear_modules ();
 }
 
 /**
  * Signal handler for the signal 2 (SIGINT (^C))
  */
 static void
-handler (int sig)
+siginthandler (int sig)
 {
     (void) sig;
     interrupted = TRUE;

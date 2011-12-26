@@ -56,6 +56,7 @@
 #include "structs.h"
 #include "caps.h"
 #include "list.h"
+#include "modules.h"
 
 #define reset_completion() completion (NULL, NULL, NULL)
 
@@ -119,6 +120,7 @@ reg_filter (const struct dirent *p)
 void
 init_history (void)
 {
+    xdebug (NULL);
     int i;
     for (i = 0; i < HISTORY; i++)
         history[i] = NULL;
@@ -154,6 +156,7 @@ insert_history (const char *cmd)
 void 
 init_command_list (void)
 {
+    xdebug (NULL);
     char *path = getenv ("PATH");
     size_t size;
     char **paths = xstrsplit (path, ":", &size);
@@ -208,6 +211,7 @@ init_command_list (void)
 void
 clear_history (void)
 {
+    xdebug (NULL);
     int i;
     for (i = 0; i < HISTORY && history[i] != NULL; i++)
     {
@@ -219,6 +223,7 @@ clear_history (void)
 void
 clear_command_list (void)
 {
+    xdebug (NULL);
     xfree_list (command_list, nb_commands);
     nb_commands = 0;
     command_list = NULL;
@@ -1337,10 +1342,19 @@ read_line (const char *prompt)
     reset_completion ();
     if (ret == NULL)
         return NULL;
-    if (prompt != NULL && xstrlen (prompt) > 0)
+    sdplist *modules = get_modules_list_by_type (PROMPT);
+    if (modules != NULL)
     {
-        fprintf (stdout, "%s", prompt);
-        fflush (stdout);
+        launch_each_module (modules);
+        xfree (modules);
+    }
+    else
+    {
+        if (prompt != NULL && xstrlen (prompt) > 0)
+        {
+            fprintf (stdout, "%s", prompt);
+            fflush (stdout);
+        }
     }
     init_ioctl ();
     do

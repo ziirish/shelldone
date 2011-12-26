@@ -47,7 +47,9 @@
 #include "builtin.h"
 #include "parser.h"
 #include "jobs.h"
+#include "modules.h"
 #include "command.h"
+#include "sdlib/plugin.h"
 
 #define open_filestream()                  \
     FILE *fdout = stdout, *fderr = stderr; \
@@ -106,6 +108,87 @@ sd_jobs (int argc, char **argv, int in, int out, int err)
 }
 
 int
+sd_module (int argc, char **argv, int in, int out, int err)
+{
+    (void) in;
+
+    open_filestream ();
+
+    if (argc < 1)
+    {
+        sd_printerr ("module: missing argument\n");
+        sd_print ("usage:\n\tmodule load|unload <module>\n");
+        sd_print ("\tmodule show conf\n");
+        sd_print ("\tmodule list loaded|available\n");
+        close_filestream ();
+        return 1;
+    }
+
+    if (xstrcmp (argv[0], "show") == 0)
+    {
+        if (argc != 2)
+        {
+            sd_printerr ("module show: missing argument\n");
+            sd_print ("usage:\n\tmodule show conf\n");
+            close_filestream ();
+            return 2;
+        }
+        if (xstrcmp (argv[1], "conf") == 0)
+        {
+            sd_printerr ("module path: %s\n", SDPLDIR);
+            close_filestream ();
+            return 0;
+        }
+    }
+
+    if (xstrcmp (argv[0], "load") == 0)
+    {
+        if (argc != 2)
+        {
+            sd_printerr ("module load: missing argument\n");
+            sd_print ("usage:\n\tmodule load <module>\n");
+            close_filestream ();
+            return 2;
+        }
+        load_module (argv[1]);
+    }
+
+    close_filestream ();
+    return 0;
+}
+int
+sd_bg (int argc, char **argv, int in, int out, int err)
+{
+    (void) argc;
+    (void) argv;
+    (void) in;
+    int ret = 0;
+
+    open_filestream ();
+
+    command *tmp = get_last_enqueued_job (FALSE);
+    if (tmp != NULL)
+    {
+        tmp->stopped = FALSE;
+        tmp->continued = TRUE;
+        sd_print ("[%d]  + continued %d (%s)\n",
+                  tmp->job,
+                  tmp->pid,
+                  tmp->cmd);
+        kill (tmp->pid, SIGCONT);
+    }
+    else
+    {
+        sd_printerr ("bg: no jobs enqeued\n");
+        ret = 254;
+    }
+
+    close_filestream ();
+
+    return ret;
+}
+
+int
 sd_fg (int argc, char **argv, int in, int out, int err)
 {
     (void) argc;
@@ -119,13 +202,13 @@ sd_fg (int argc, char **argv, int in, int out, int err)
     {
         int status;
         int r;
-        kill (tmp->pid, SIGCONT);
         tmp->stopped = FALSE;
         tmp->continued = TRUE;
-        sd_print ("[%d]  continued %d (%s)\n",
+        sd_print ("[%d]  + continued %d (%s)\n",
                   tmp->job,
                   tmp->pid,
                   tmp->cmd);
+        kill (tmp->pid, SIGCONT);
         signal (SIGTSTP, sigstophandler);
         curr = tmp;
 
