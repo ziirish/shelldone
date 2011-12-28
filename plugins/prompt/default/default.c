@@ -1,5 +1,5 @@
 /**
- * Shelldone plugin 'dummy'
+ * Shelldone plugin 'default'
  *
  * vim:ts=4:sw=4:expandtab
  *
@@ -31,24 +31,96 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+#ifndef _GNU_SOURCE
+    #define _GNU_SOURCE
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
 
 #include <sdlib/plugin.h>
+#include <xutils.h>
+
+static char *prompt = NULL;
+static char *host = NULL;
+static const char *fpwd = NULL;
+
+/**
+ * Gets the prompt in a hard-coded pattern like:
+ * user@hostname:pwd$
+ * We can imagine make it configurable in the future
+ * @return The prompt
+ */
+static const char *
+get_prompt (void)
+{
+    const char *user = getenv ("USER");
+    const char *full_pwd = getenv ("PWD");
+    const char *home = getenv ("HOME");
+    char *pwd = NULL;
+
+    size_t s_home = xstrlen (home);
+    size_t s_pwd = xstrlen (full_pwd);
+    size_t full;
+
+    if (fpwd != NULL && xstrcmp (full_pwd, fpwd) == 0)
+    {
+        return prompt;
+    }
+
+    if (strncmp (full_pwd, home, s_home) == 0)
+    {
+        size_t size = s_pwd - s_home;
+        int cpt = 1;
+        pwd = xmalloc (size + 2);
+        *pwd = '~';
+        while (cpt < (int) size + 2)
+        {
+            pwd[cpt] = full_pwd[s_home+cpt-1];
+            cpt++;
+        }
+        pwd[cpt-1] = '\0';
+    }
+    else
+        pwd = xstrdup (full_pwd);
+
+    xfree (prompt);
+    full = xstrlen (user) + xstrlen (host) + xstrlen (pwd) + 4;
+    prompt = xmalloc (full + 1);
+    snprintf (prompt, full + 1, "%s@%s:%s$ ", user, host, pwd);
+    fpwd = full_pwd;
+
+    xfree (pwd);
+    return prompt;
+}
 
 void
 sd_plugin_init (sdplugindata *plugin)
 {
-    plugin->name = "dummy";
+    plugin->name = "default";
     plugin->type = PROMPT;
     plugin->prio = 1;
+    /* get the hostname */
+    host = xmalloc (30);
+    gethostname (host, 30);
 }
 
 void
 sd_plugin_main (void **data)
 {
     void *tmp = data[0];
-    char **stmp = (char **)tmp;
-    *stmp = "$ ";
+    const char **stmp = (const char **)tmp;
+    *stmp = get_prompt ();
+
+    return;
+}
+
+void
+sd_plugin_clean (void)
+{
+    xfree (host);
+    xfree (prompt);
+    return;
 }

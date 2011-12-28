@@ -1,5 +1,5 @@
 /**
- * Shelldone
+ * Shelldone plugin '@PLUGINNAME@'
  *
  * vim:ts=4:sw=4:expandtab
  *
@@ -31,46 +31,30 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef _MODULES_H_
-#define _MODULES_H_
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
 
-#include "sdlib/plugin.h"
+#include <sdlib/plugin.h>
 
-/* Initialize modules list */
-void init_modules (void);
+void
+sd_plugin_init (sdplugindata *plugin)
+{
+    plugin->name = "@PLUGINNAME@";
+    plugin->type = @PLUGINTYPE@;
+    plugin->prio = 1;
+}
 
-/* Clear modules list */
-void clear_modules (void);
+void
+sd_plugin_main (void **data)
+{
+    (void) data;
 
-/**
- * Execute each main function of the modules present in the list
- * @param list List of modules
- */
-void launch_each_module (sdplist *list, void **data);
+    return;
+}
 
-/**
- * Give a list of loaded modules by type
- * @param type Type of the moduless we are looking for
- * @return A list of modules of given type or NULL
- */
-sdplist *get_modules_list_by_type (sdplugin_type type);
-
-/**
- * Unload a module based on its name
- * @param name Name of the module we want to unload
- */
-void unload_module_by_name (const char *name);
-
-/**
- * Unload a module
- * @param ptr Module to unload
- */
-void unload_module (sdplugindata *ptr);
-
-/**
- * Load a module
- * @param path Path of the module to load
- */
-void load_module (const char *path);
-
-#endif
+void
+sd_plugin_clean (void)
+{
+    return;
+}
