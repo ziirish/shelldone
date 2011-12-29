@@ -46,6 +46,7 @@
 static char *prompt = NULL;
 static char *host = NULL;
 static const char *fpwd = NULL;
+static unsigned int loaded = FALSE;
 
 /**
  * Gets the prompt in a hard-coded pattern like:
@@ -96,20 +97,31 @@ get_prompt (void)
     return prompt;
 }
 
+static void
+load (void)
+{
+    if (!loaded)
+    {
+        /* get the hostname */
+        host = xmalloc (30);
+        gethostname (host, 30);
+        loaded = TRUE;
+    }
+}
+
 void
 sd_plugin_init (sdplugindata *plugin)
 {
     plugin->name = "default";
     plugin->type = PROMPT;
-    plugin->prio = 1;
-    /* get the hostname */
-    host = xmalloc (30);
-    gethostname (host, 30);
+    plugin->prio = 2;
 }
 
 void
 sd_plugin_main (void **data)
 {
+    if (!loaded)
+        load ();
     void *tmp = data[0];
     const char **stmp = (const char **)tmp;
     *stmp = get_prompt ();
@@ -120,7 +132,10 @@ sd_plugin_main (void **data)
 void
 sd_plugin_clean (void)
 {
-    xfree (host);
-    xfree (prompt);
+    if (loaded)
+    {
+        xfree (host);
+        xfree (prompt);
+    }
     return;
 }

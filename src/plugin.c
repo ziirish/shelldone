@@ -75,10 +75,8 @@ unload_all_modules (void)
     while (tmp != NULL)
     {
         sdplugin *tmp2 = tmp->next;
-        xdebug ("%s", tmp->content->name);
         if (tmp->content->loaded)
         {
-            xdebug ("unloading");
             unload_module (tmp->content);
         }
         tmp = tmp2;
@@ -152,17 +150,16 @@ free_sdplist (sdplist *ptr)
     if (ptr != NULL)
     {
         sdplugin *tmp = ptr->head;
-        int cpt = 0;
         while (tmp != NULL)
         {
             sdplugin *tmp2 = tmp->next;
-/*
+
             free_sdplugindata (tmp->content);
-            list_remove_id ((sdlist **)&ptr, cpt, NULL);
-*/
-            free_sdplugin (tmp);
+            /* we remove the head of the list each time so we don't need to
+             * increase our index */
+            list_remove_id ((sdlist **)&ptr, 0, NULL);
+
             tmp = tmp2;
-            cpt++;
         }
         xfree (ptr);
     }
@@ -198,7 +195,6 @@ module_equals (void *c1, void *c2)
 {
     sdplugindata *tmp = (sdplugindata *)c1;
     sdplugindata *tmp2 = (sdplugindata *)c2;
-    xdebug ("%s | %s", tmp->name, tmp2->name);
     return xstrcmp (tmp->name, tmp2->name);
 }
 
@@ -221,7 +217,6 @@ launch_each_module (sdplist *list, void **data)
         sdplugin *tmp = list->head;
         while (tmp != NULL)
         {
-            xdebug ("launching '%s'", tmp->content->name);
             tmp->content->main (data);
             tmp = tmp->next;
         }
@@ -233,8 +228,13 @@ order_jobs (const void *j1, const void *j2)
 {
     sdplugin *p1 = (sdplugin *)j1;
     sdplugin *p2 = (sdplugin *)j2;
-
-    return (p1->content->prio - p2->content->prio);
+    if (p1->content->prio == p2->content->prio)
+        return 0;
+    if (p1->content->prio < p2->content->prio)
+        return -1;
+    if (p1->content->prio > p2->content->prio)
+        return 1;
+    return 0;
 }
 
 sdplist *
@@ -245,7 +245,6 @@ get_modules_list_by_type (sdplugin_type type)
     int cpt = 0;
     while (curr != NULL)
     {
-        xdebug ("%s", curr->content->name);
         if (curr->content->type == type)
             cpt++;
         curr = curr->next;
@@ -303,7 +302,6 @@ unload_module (sdplugindata *ptr)
 {
     if (ptr != NULL && ptr->loaded)
     {
-        xdebug ("unloading '%s'", ptr->name);
         if (ptr->clean != NULL)
             ptr->clean ();
         if (ptr->lib != NULL)
@@ -381,16 +379,4 @@ load_module (const char *path)
 
     list_append ((sdlist **)&modules_list, (sddata *)pl);
     fprintf (stdout, "Module '%s' successfuly loaded.\n", ptr->name);
-
-#ifdef DEBUG
-    fprintf (stdout, "size: %d\n", modules_list->size);
-    sdplugin *tmp = modules_list->head;
-    while (tmp != NULL)
-    {
-        fprintf (stdout, "module '%s' (%s)\n",
-                         tmp->content->name,
-                         tmp->content->loaded ? "loaded" : "unloaded");
-        tmp = tmp->next;
-    }
-#endif
 }

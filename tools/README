@@ -1,0 +1,13 @@
+genplugin.sh is a little bash script that generate a new emplty plugin based on
+a skeleton.
+
+usage
+-----
+
+$ ./genplugin.sh
+Building new plugin for Shelldone
+
+name: example
+type (PROMPT, PARSING, BUILTIN): PROMPT
+New plugin 'example' generated.
+Have fun coding it ;)

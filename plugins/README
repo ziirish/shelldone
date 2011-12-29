@@ -1,0 +1,63 @@
+Shelldone is extensible with modules. Modules are coded in C and MUST respect
+the following requirements.
+
+Requirements
+------------
+
+The plugins MUST implements at least the 'sd_plugin_init' and 'sd_plugin_main'
+functions. In option they can also implement the 'sd_plugin_clean' function.
+They must include the sdlib/plugin.h header.
+
+Here is an empty one:
+
+#include <stdio.h>
+#include <sdlib/plugin.h>
+
+void
+sd_plugin_init (sdplugindata *ptr)
+{
+    ptr->name = "example";
+    ptr->prio = 1;
+    ptr->type = PROMPT;
+}
+
+void
+sd_plugin_main (void **data)
+{
+    (void) data;
+    fprintf (stdout, "$ ");
+}
+
+void
+sd_plugin_clean (void)
+{
+    return;
+}
+
+Compilation
+-----------
+
+$ make
+
+Execution
+---------
+
+First of all, launch shelldone, then load the module
+$ ./shelldone
+shell> module load path/to/example.so
+Module 'example' successfuly loaded.
+$ shell> 
+
+Informations
+------------
+
+There are only three types of plugins: PROMPT, BUILTIN and PARSING.
+
+If you implement a plugin of type PROMPT, data would anly contains a pointer to
+a const char *
+
+You can access it this way:
+
+void *tmp = data[0];
+const char **sptmp = (const char **)tmp;
+*sptmp = "toto";
