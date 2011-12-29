@@ -73,4 +73,10 @@ void unload_module (sdplugindata *ptr);
  */
 void load_module (const char *path);
 
+/**
+ * Free sdplist
+ * @param ptr List to free
+ */
+void free_sdplist (sdplist *ptr);
+
 #endif

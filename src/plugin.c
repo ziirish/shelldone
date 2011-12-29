@@ -48,9 +48,8 @@ static sdplugin *new_sdplugin (void);
 static void unload_all_modules (void);
 static int module_equals (void *c1, void *c2);
 static unsigned int is_module_present (const char *name);
-static unsigned int free_sdplugindata (sdplugindata *ptr);
-static unsigned int free_sdplugin (sdplugin *ptr);
-static unsigned int free_sdplist (sdplist **ptr);
+static void free_sdplugindata (sdplugindata *ptr);
+static void free_sdplugin (sdplugin *ptr);
 
 static sdplist *modules_list = NULL;
 
@@ -66,8 +65,7 @@ clear_modules (void)
 {
     xdebug (NULL);
     unload_all_modules ();
-    free_sdplist (&modules_list);
-    xfree (modules_list);
+    free_sdplist (modules_list);
 }
 
 static void
@@ -76,9 +74,14 @@ unload_all_modules (void)
     sdplugin *tmp = modules_list->head;
     while (tmp != NULL)
     {
+        sdplugin *tmp2 = tmp->next;
+        xdebug ("%s", tmp->content->name);
         if (tmp->content->loaded)
+        {
+            xdebug ("unloading");
             unload_module (tmp->content);
-        tmp = tmp->next;
+        }
+        tmp = tmp2;
     }
 }
 
@@ -113,6 +116,7 @@ new_sdplugindata (void)
 static sdplugin *
 new_sdplugin (void)
 {
+    xdebug (NULL);
     sdplugin *ret = xcalloc (1, sizeof (*ret));
     ret->content = new_sdplugindata ();
 
@@ -122,50 +126,71 @@ new_sdplugin (void)
     return ret;
 }
 
-static unsigned int
+static void
 free_sdplugindata (sdplugindata *ptr)
 {
     if (ptr != NULL)
     {
-        if (ptr->loaded)
-                return FALSE;
         xfree (ptr);
     }
-    return TRUE;
 }
 
-static unsigned int
+static void
 free_sdplugin (sdplugin *ptr)
 {
+    xdebug (NULL);
     if (ptr != NULL)
     {
-        if (!free_sdplugindata (ptr->content))
-            return FALSE;
+        free_sdplugindata (ptr->content);
         xfree (ptr);
     }
-    return TRUE;
 }
 
-static unsigned int
-free_sdplist (sdplist **ptr)
+void
+free_sdplist (sdplist *ptr)
 {
     if (ptr != NULL)
     {
-        sdplugin *tmp = (*ptr)->head;
+        sdplugin *tmp = ptr->head;
         int cpt = 0;
         while (tmp != NULL)
         {
             sdplugin *tmp2 = tmp->next;
-            if (!free_sdplugindata (tmp->content))
-                return FALSE;
-            list_remove_id ((sdlist **)ptr, cpt, NULL);
+/*
+            free_sdplugindata (tmp->content);
+            list_remove_id ((sdlist **)&ptr, cpt, NULL);
+*/
+            free_sdplugin (tmp);
             tmp = tmp2;
             cpt++;
         }
+        xfree (ptr);
     }
-    xfree (*ptr);
-    *ptr = NULL;
-    return TRUE;
+}
+
+static sdplugin *
+copy_sdplugin (sdplugin *src)
+{
+    sdplugin *ret = NULL;
+    if (src != NULL)
+    {
+        ret = new_sdplugin ();
+        sdplugindata *tmp = ret->content;
+        sdplugindata *stmp = src->content;
+        if (stmp->lib != NULL)
+            memcpy (&(tmp->lib), &(stmp->lib), sizeof (tmp->lib));
+        if (stmp->init != NULL)
+            memcpy (&(tmp->init), &(stmp->init), sizeof (tmp->init));
+        if (stmp->clean != NULL)
+            memcpy (&(tmp->clean), &(stmp->clean), sizeof (tmp->clean));
+        if (stmp->main != NULL)
+            memcpy (&(tmp->main), &(stmp->main), sizeof (tmp->main));
+        tmp->name = stmp->name;
+        tmp->prio = stmp->prio;
+        tmp->type = stmp->type;
+        tmp->loaded = stmp->loaded;
+    }
+    return ret;
 }
 
 static int
@@ -173,6 +198,7 @@ module_equals (void *c1, void *c2)
 {
     sdplugindata *tmp = (sdplugindata *)c1;
     sdplugindata *tmp2 = (sdplugindata *)c2;
+    xdebug ("%s | %s", tmp->name, tmp2->name);
     return xstrcmp (tmp->name, tmp2->name);
 }
 
@@ -195,10 +221,20 @@ launch_each_module (sdplist *list, void **data)
         sdplugin *tmp = list->head;
         while (tmp != NULL)
         {
+            xdebug ("launching '%s'", tmp->content->name);
             tmp->content->main (data);
             tmp = tmp->next;
         }
     }
+}
+
+static int
+order_jobs (const void *j1, const void *j2)
+{
+    sdplugin *p1 = (sdplugin *)j1;
+    sdplugin *p2 = (sdplugin *)j2;
+
+    return (p1->content->prio - p2->content->prio);
 }
 
 sdplist *
@@ -206,20 +242,39 @@ get_modules_list_by_type (sdplugin_type type)
 {
     sdplist *ret = NULL;
     sdplugin *curr = modules_list->head;
-    unsigned int found = FALSE;
+    int cpt = 0;
     while (curr != NULL)
+    {
+        xdebug ("%s", curr->content->name);
+        if (curr->content->type == type)
+            cpt++;
+        curr = curr->next;
+    }
+
+    if (cpt < 1)
+        return NULL;
+
+    ret = new_sdplist ();
+    sdplugin **tmp = xcalloc (cpt, sizeof (*tmp));
+    int i = 0;
+
+    curr = modules_list->head;
+    while (curr != NULL && i < cpt)
     {
         if (curr->content->type == type)
         {
-            if (!found)
-            {
-                found = TRUE;
-                ret = new_sdplist ();
-            }
-            list_append ((sdlist **)&ret, (sddata *)curr);
+            tmp[i] = copy_sdplugin (curr);
+            i++;
         }
         curr = curr->next;
     }
+
+    qsort (tmp, cpt, sizeof (*tmp), order_jobs);
+
+    for (i = 0; i < cpt; i++)
+        list_append ((sdlist **)&ret, (sddata *)tmp[i]);
+
+    xfree (tmp);
 
     return ret;
 }
@@ -248,6 +303,7 @@ unload_module (sdplugindata *ptr)
 {
     if (ptr != NULL && ptr->loaded)
     {
+        xdebug ("unloading '%s'", ptr->name);
         if (ptr->clean != NULL)
             ptr->clean ();
         if (ptr->lib != NULL)
@@ -263,13 +319,6 @@ load_module (const char *path)
     sdplugindata *ptr = pl->content;
     void *func;
     char *error = NULL;
-
-    if (ptr->loaded)
-    {
-        fprintf (stderr, "The module '%s' is already loaded!\n",
-                         ptr->name);
-        return;
-    }
 
     ptr->lib = dlopen (path, RTLD_LAZY);
     error = dlerror ();
@@ -295,15 +344,6 @@ load_module (const char *path)
     }
     memcpy (&(ptr->init), &func, sizeof (ptr->init));
 
-    ptr->init (ptr);
-    if (is_module_present (ptr->name))
-    {
-        fprintf (stderr, "Module '%s' already loaded\n", ptr->name);
-        dlclose (ptr->lib);
-        free_sdplugin (pl);
-        return;
-    }
-
     func = dlsym (ptr->lib, "sd_plugin_main");
     error = dlerror ();
     if (error != NULL)
@@ -328,5 +368,29 @@ load_module (const char *path)
         memcpy (&(ptr->clean), &func, sizeof (ptr->clean));
     }
     ptr->loaded = TRUE;
+
+    ptr->init (ptr);
+    if (is_module_present (ptr->name))
+    {
+        fprintf (stderr, "Module '%s' already loaded\n", ptr->name);
+/*        unload_module (ptr);*/
+        dlclose (ptr->lib);
+        free_sdplugin (pl);
+        return;
+    }
+
     list_append ((sdlist **)&modules_list, (sddata *)pl);
+    fprintf (stdout, "Module '%s' successfuly loaded.\n", ptr->name);
+
+#ifdef DEBUG
+    fprintf (stdout, "size: %d\n", modules_list->size);
+    sdplugin *tmp = modules_list->head;
+    while (tmp != NULL)
+    {
+        fprintf (stdout, "module '%s' (%s)\n",
+                         tmp->content->name,
+                         tmp->content->loaded ? "loaded" : "unloaded");
+        tmp = tmp->next;
+    }
+#endif
 }

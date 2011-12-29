@@ -167,7 +167,7 @@ shelldone_loop (void)
             data[0] = (void *)&pt;
             launch_each_module (modules, data);
             xfree (data);
-            xfree (modules);
+            free_sdplist (modules);
         }
         else
         {
