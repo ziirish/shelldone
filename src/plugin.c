@@ -114,9 +114,20 @@ new_sdplugindata (void)
 static sdplugin *
 new_sdplugin (void)
 {
-    xdebug (NULL);
     sdplugin *ret = xcalloc (1, sizeof (*ret));
     ret->content = new_sdplugindata ();
+
+    ret->next = NULL;
+    ret->prev = NULL;
+
+    return ret;
+}
+
+static sdplugin *
+new_sdplugin_empty (void)
+{
+    sdplugin *ret = xcalloc (1, sizeof (*ret));
+    ret->content = NULL;
 
     ret->next = NULL;
     ret->prev = NULL;
@@ -165,27 +176,37 @@ free_sdplist (sdplist *ptr)
     }
 }
 
+static sdplugindata *
+copy_sdplugindata (sdplugindata *src)
+{
+    sdplugindata *ret = NULL;
+    if (src != NULL)
+    {
+        ret = new_sdplugindata ();
+        if (src->lib != NULL)
+            memcpy (&(ret->lib), &(src->lib), sizeof (ret->lib));
+        if (src->init != NULL)
+            memcpy (&(ret->init), &(src->init), sizeof (ret->init));
+        if (src->clean != NULL)
+            memcpy (&(ret->clean), &(src->clean), sizeof (ret->clean));
+        if (src->main != NULL)
+            memcpy (&(ret->main), &(src->main), sizeof (ret->main));
+        ret->name = src->name;
+        ret->prio = src->prio;
+        ret->type = src->type;
+        ret->loaded = src->loaded;
+    }
+    return ret;
+}
+
 static sdplugin *
 copy_sdplugin (sdplugin *src)
 {
     sdplugin *ret = NULL;
     if (src != NULL)
     {
-        ret = new_sdplugin ();
-        sdplugindata *tmp = ret->content;
-        sdplugindata *stmp = src->content;
-        if (stmp->lib != NULL)
-            memcpy (&(tmp->lib), &(stmp->lib), sizeof (tmp->lib));
-        if (stmp->init != NULL)
-            memcpy (&(tmp->init), &(stmp->init), sizeof (tmp->init));
-        if (stmp->clean != NULL)
-            memcpy (&(tmp->clean), &(stmp->clean), sizeof (tmp->clean));
-        if (stmp->main != NULL)
-            memcpy (&(tmp->main), &(stmp->main), sizeof (tmp->main));
-        tmp->name = stmp->name;
-        tmp->prio = stmp->prio;
-        tmp->type = stmp->type;
-        tmp->loaded = stmp->loaded;
+        ret = new_sdplugin_empty ();
+        ret->content = copy_sdplugindata (src->content);
     }
     return ret;
 }
@@ -224,17 +245,12 @@ launch_each_module (sdplist *list, void **data)
 }
 
 static int
-order_jobs (const void *j1, const void *j2)
+module_order (const void *m1, const void *m2)
 {
-    sdplugin *p1 = (sdplugin *)j1;
-    sdplugin *p2 = (sdplugin *)j2;
-    if (p1->content->prio == p2->content->prio)
-        return 0;
-    if (p1->content->prio < p2->content->prio)
-        return -1;
-    if (p1->content->prio > p2->content->prio)
-        return 1;
-    return 0;
+    const sdplugin *p1 = * (sdplugin * const *) m1;
+    const sdplugin *p2 = * (sdplugin * const *) m2;
+
+    return (p1->content->prio - p2->content->prio);
 }
 
 sdplist *
@@ -268,7 +284,7 @@ get_modules_list_by_type (sdplugin_type type)
         curr = curr->next;
     }
 
-    qsort (tmp, cpt, sizeof (*tmp), order_jobs);
+    qsort (tmp, cpt, sizeof (*tmp), module_order);
 
     for (i = 0; i < cpt; i++)
         list_append ((sdlist **)&ret, (sddata *)tmp[i]);
