@@ -65,7 +65,7 @@ void enqueue_job (command *ptr, unsigned int stopped);
  * List running jobs or finished jobs
  * @param print If TRUE prints running jobs
  */
-void list_jobs (unsigned int print);
+void list_jobs (unsigned int print, int *pids, int cpt);
 
 /* Initialize jobs list */
 void init_jobs (void);
@@ -78,7 +78,7 @@ void clear_jobs (void);
  * @param j The job id
  * @return The job corresponding to this job id
  */
-job *get_job_by_job (int j);
+job *get_job_by_job_id (int j);
 
 /**
  * Return the last enqueued job that has been stopped by SIGTSTP (^Z)

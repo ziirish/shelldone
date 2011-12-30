@@ -31,11 +31,19 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+#ifndef _BSD_SOURCE
+     #define _BSD_SOURCE
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
 
 #include <sdlib/plugin.h>
+#include <structs.h>
+#include <jobs.h>
+#include <xutils.h>
 
 void
 sd_plugin_init (sdplugindata *plugin)
@@ -48,13 +56,36 @@ sd_plugin_init (sdplugindata *plugin)
 void
 sd_plugin_main (void **data)
 {
-    (void) data;
+    void *tmp = data[0];
+    command **tmpc = (command **)tmp;
+    command *cmd = *tmpc;
+    if (cmd->argc > 0)
+    {
+        cmd->argvf = xcalloc (cmd->argc, sizeof (char *));
+        int i,k;
+        for (i = 0, k = 0; i < cmd->argc; i++)
+        {
+            if (*(cmd->argv[i]) == '%')
+            {
+                int j = strtol (cmd->argv[i]+1, NULL, 10);
+                job *jb = get_job_by_job_id (j);
+                if (jb != NULL)
+                {
+                    cmd->argvf[k] = xmalloc (64 * sizeof (char));
+                    snprintf (cmd->argvf[k], 64, "%d", jb->content->pid);
+                    k++;
+                }
+                else
+                    fprintf (stderr, "'%s': no such job\n", cmd->argv[i]);
+            }
+            else
+            {
+                cmd->argvf[k] = xstrdup (cmd->argv[i]);
+                k++;
+            }
+        }
+        cmd->argcf = k;
+    }
 
-    return;
-}
-
-void
-sd_plugin_clean (void)
-{
     return;
 }

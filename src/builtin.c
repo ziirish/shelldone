@@ -102,7 +102,7 @@ sd_jobs (int argc, char **argv, int in, int out, int err)
     (void) out;
     (void) err;
 
-    list_jobs (TRUE);
+    list_jobs (TRUE, NULL, 0);
 
     return 0;
 }
@@ -153,6 +153,73 @@ sd_module (int argc, char **argv, int in, int out, int err)
         load_module (argv[1]);
     }
 
+    if (xstrcmp (argv[0], "list") == 0)
+    {
+        if (argc != 2)
+        {
+            sd_printerr ("module list: missing argument\n");
+            sd_print ("usage:\n\tmodule list loaded|available\n");
+            close_filestream ();
+            return 2;
+        }
+        if (xstrcmp (argv[1], "loaded") == 0)
+        {
+            /*
+            sd_print ("\
+Notice: the following list is ordered by 'prio'. A higher prio means the\n\
+plugin is executed lately.\n");
+            */
+            sdplist *modules = get_modules_list_by_type (PROMPT);
+            if (modules != NULL)
+            {
+                sdplugin *tmp = modules->head;
+                sd_print ("=== PROMPT ===\n");
+                while (tmp != NULL)
+                {
+                    sd_print ("%s", tmp->content->name);
+                    tmp = tmp->next;
+                    if (tmp != NULL)
+                        sd_print (" -> ");
+                }
+                sd_print ("\n");
+                free_sdplist (modules);
+                modules = NULL;
+            }
+            modules = get_modules_list_by_type (PARSING);
+            if (modules != NULL)
+            {
+                sdplugin *tmp = modules->head;
+                sd_print ("=== PARSING ===\n");
+                while (tmp != NULL)
+                {
+                    sd_print ("%s", tmp->content->name);
+                    tmp = tmp->next;
+                    if (tmp != NULL)
+                        sd_print (" -> ");
+                }
+                sd_print ("\n");
+                free_sdplist (modules);
+                modules = NULL;
+            }
+            modules = get_modules_list_by_type (BUILTIN);
+            if (modules != NULL)
+            {
+                sdplugin *tmp = modules->head;
+                sd_print ("=== BUILTIN ===\n");
+                while (tmp != NULL)
+                {
+                    sd_print ("%s", tmp->content->name);
+                    tmp = tmp->next;
+                    if (tmp != NULL)
+                        sd_print (" -> ");
+                }
+                sd_print ("\n");
+                free_sdplist (modules);
+                modules = NULL;
+            }
+        }
+    }
+
     close_filestream ();
     return 0;
 }
@@ -169,13 +236,16 @@ sd_bg (int argc, char **argv, int in, int out, int err)
     command *tmp = get_last_enqueued_job (FALSE);
     if (tmp != NULL)
     {
-        tmp->stopped = FALSE;
         tmp->continued = TRUE;
-        sd_print ("[%d]  + continued %d (%s)\n",
-                  tmp->job,
-                  tmp->pid,
-                  tmp->cmd);
-        kill (tmp->pid, SIGCONT);
+        if (tmp->stopped)
+        {
+            sd_print ("[%d]  + continued %d (%s)\n",
+                      tmp->job,
+                      tmp->pid,
+                      tmp->cmd);
+            tmp->stopped = FALSE;
+            kill (tmp->pid, SIGCONT);
+        }
     }
     else
     {
@@ -202,13 +272,16 @@ sd_fg (int argc, char **argv, int in, int out, int err)
     {
         int status;
         int r;
-        tmp->stopped = FALSE;
         tmp->continued = TRUE;
-        sd_print ("[%d]  + continued %d (%s)\n",
-                  tmp->job,
-                  tmp->pid,
-                  tmp->cmd);
-        kill (tmp->pid, SIGCONT);
+        if (tmp->stopped)
+        {
+            sd_print ("[%d]  + continued %d (%s)\n",
+                      tmp->job,
+                      tmp->pid,
+                      tmp->cmd);
+            tmp->stopped = FALSE;
+            kill (tmp->pid, SIGCONT);
+        }
         signal (SIGTSTP, sigstophandler);
         curr = tmp;
 

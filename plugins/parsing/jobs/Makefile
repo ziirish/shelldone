@@ -8,9 +8,9 @@ SOURCES=$(wildcard *.c)
 EXECUTABLE=jobs.so
 .PHONY: clean
 
-$(EXECUTABLE): 
+$(EXECUTABLE): clean
 	$(CC) $(MOD_LDFLAGS) $(MOD_CFLAGS) $(SOURCES) $(CFLAGS) -o $@ $(INCLUDES)
 
 clean:
-	rm $(EXECUTABLE)
+	test -f $(EXECUTABLE) && rm $(EXECUTABLE) || echo "Already cleared"
 

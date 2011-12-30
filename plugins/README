@@ -42,7 +42,8 @@ $ make
 Execution
 ---------
 
-First of all, launch shelldone, then load the module
+The aboce piece of code would returns the following result.
+First of all, launch shelldone, then load the module.
 $ ./shelldone
 shell> module load path/to/example.so
 Module 'example' successfuly loaded.
@@ -53,7 +54,7 @@ Informations
 
 There are only three types of plugins: PROMPT, BUILTIN and PARSING.
 
-If you implement a plugin of type PROMPT, data would anly contains a pointer to
+If you implement a plugin of type PROMPT, data would only contains a pointer to
 a const char *
 
 You can access it this way:
@@ -61,3 +62,12 @@ You can access it this way:
 void *tmp = data[0];
 const char **sptmp = (const char **)tmp;
 *sptmp = "toto";
+
+If you implement a plugin of type PARSING, data would only contains a pointer to
+a command *
+
+You can access it this way:
+
+void *tmp = data[0];
+command **tmpc = (command **)tmp;
+command cmd = *tmpc;

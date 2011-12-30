@@ -68,8 +68,6 @@ static void shelldone_clean (void);
 static void siginthandler (int signal);
 static void shelldone_loop (void);
 
-int ret_code;
-
 /* Initialization function */
 static void
 shelldone_init (void)
@@ -163,17 +161,15 @@ shelldone_loop (void)
         sdplist *modules = get_modules_list_by_type (PROMPT);
         if (modules != NULL)
         {
-            void **data = xcalloc (1, sizeof (void *));
-            data[0] = (void *)&pt;
+            void *data[] = {(void *)&pt};
             launch_each_module (modules, data);
-            xfree (data);
             free_sdplist (modules);
         }
         else
         {
             pt = "shell> ";
         }
-        list_jobs (FALSE);
+        list_jobs (FALSE, NULL, 0);
         /* read the input line */
         li = read_line (pt);
         if (xstrcmp ("quit", li) == 0)

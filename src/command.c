@@ -54,6 +54,7 @@
 #include "parser.h"
 #include "xutils.h"
 #include "jobs.h"
+#include "modules.h"
 
 static const builtin calls[] = {{"cd", (cmd_builtin) sd_cd},
                                 {"bg", (cmd_builtin) sd_bg},
@@ -67,14 +68,15 @@ static const builtin calls[] = {{"cd", (cmd_builtin) sd_cd},
 /*                              {"echo", (cmd_builtin) sd_echo}, */
                                 {NULL, NULL}};
 
-extern int ret_code;
 extern pid_t shell_pgid;
 extern int shell_is_interactive;
 extern int shell_terminal;
 extern unsigned int interrupted;
 extern sigjmp_buf env;
 extern int val;
+
 command *curr = NULL;
+int ret_code;
 
 void
 sigstophandler (int sig)
@@ -102,7 +104,9 @@ new_command (void)
         ret->cmd = NULL;
         ret->argv = NULL;
         ret->protected = NULL;
+        ret->argvf = NULL;
         ret->argc = 0;
+        ret->argcf = 0;
         ret->flag = END;
         ret->in = STDIN_FILENO;
         ret->out = STDOUT_FILENO;
@@ -173,6 +177,19 @@ copy_command (const command *src)
         ret->protected = NULL;
         ret->argc = 0;
     }
+    if (src->argcf > 0)
+    {
+        ret->argvf = xcalloc (src->argcf, sizeof (char *));
+        int i;
+        for (i = 0; i < src->argcf; i++)
+            ret->argvf[i] = xstrdup (src->argvf[i]);
+        ret->argcf = src->argcf;
+    }
+    else
+    {
+        ret->argvf = NULL;
+        ret->argcf = 0;
+    }
     return ret;
 }
 
@@ -217,9 +234,24 @@ free_command (command *ptr)
     if (ptr != NULL)
     {
         int cpt;
+        unsigned int copy = (ptr->argv == ptr->argvf);
         for (cpt = 0; cpt < ptr->argc; cpt++)
+        {
             xfree (ptr->argv[cpt]);
+            ptr->argv[cpt] = NULL;
+        }
+        if (!copy)
+        {
+            for (cpt = 0; cpt < ptr->argcf; cpt++)
+            {
+                xfree (ptr->argvf[cpt]);
+                ptr->argvf[cpt] = NULL;
+            }
+            xfree (ptr->argvf);
+        }
         xfree (ptr->argv);
+        ptr->argv = NULL;
+        ptr->argvf = NULL;
         xfree (ptr->protected);
         xfree (ptr->cmd);
         xfree (ptr);
@@ -348,6 +380,18 @@ run_command (command_line *ptrc)
     if (ptrc == NULL)
         return -1;
     command *ptr = ptrc->content;
+    sdplist *modules = get_modules_list_by_type (PARSING);
+    if (modules != NULL)
+    {
+        void *data[] = {(void *)&ptr};
+        launch_each_module (modules, data);
+        free_sdplist (modules);
+    }
+    else
+    {
+        ptr->argvf = ptr->argv;
+        ptr->argcf = ptr->argc;
+    }
     curr = ptr;
     pid_t r = -1, ppid;
     ppid = getpid ();
@@ -388,7 +432,7 @@ run_command (command_line *ptrc)
                 {
 /*                        argv[i] = xstrdup (ptr->argv[i]); */;
                 }
-            r = call (ptr->argc, ptr->argv, ptr->in, ptr->out, ptr->err);
+            r = call (ptr->argcf, ptr->argvf, ptr->in, ptr->out, ptr->err);
             ret_code = r;
             ptr->builtin = TRUE;
         }
@@ -456,13 +500,14 @@ run_command (command_line *ptrc)
                 }
                 /* Here we add the argv[0] which is the program name */
                 char ** argv;
-                if (ptr->argc > 0)
+                if (ptr->argcf > 0)
                 {
                     int i;
-                    argv = xcalloc (ptr->argc + 2, sizeof (char *));
+                    argv = xcalloc (ptr->argcf + 2, sizeof (char *));
                     argv[0] = ptr->cmd;
-                    for (i = 1; i - 1 < ptr->argc; i++)
+                    for (i = 1; i - 1 < ptr->argcf; i++)
                     {
+                        /*
                         if (xstrcmp ("$?", ptr->argv[i-1]) == 0 && 
                             ptr->protected[i-1] != SINGLE_QUOTE)
                         {
@@ -471,7 +516,8 @@ run_command (command_line *ptrc)
                             argv[i] = buf;
                         }
                         else
-                            argv[i] = ptr->argv[i-1];
+                        */
+                            argv[i] = ptr->argvf[i-1];
                     }
                     argv[i] = NULL;
                 }

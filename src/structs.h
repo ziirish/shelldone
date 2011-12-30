@@ -34,6 +34,8 @@
 #ifndef _STRUCTS_H_
 #define _STRUCTS_H_
 
+#include <sys/types.h>
+
 /* Structure that represents a command */
 typedef struct _command_line command_line;
 
@@ -75,8 +77,12 @@ struct _command {
     char **argv;
     /* argument protection */
     Protection *protected;
+    /* arguments after parsing */
+    char **argvf;
     /* nb arguments */
     int argc;
+    /* nb arguments after parsing */
+    int argcf;
     /* cmd flag */
     CmdFlag flag;
     /* stdout */

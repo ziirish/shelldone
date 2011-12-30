@@ -49,7 +49,6 @@
 #include "list.h"
 
 static jobs *list = NULL;
-static job *last = NULL;
 
 void
 clear_job (job *ptr)
@@ -132,7 +131,6 @@ enqueue_job (command *ptr, unsigned int stopped)
     {
         fprintf (stdout, "[%d] %d (%s) suspended\n",
                          tmp->content->job, ptr->pid, ptr->cmd);
-        last = tmp;
     }
     else
         fprintf (stdout, "[%d] %d (%s)\n",
@@ -183,6 +181,7 @@ is_job_done (pid_t pid, unsigned int print)
     int status;
     int idx = index_of (pid);
     job *j = get_job (idx);
+    const char l = (j == list->tail) ? '+' : '-';
     pid_t p = waitpid (pid, &status, WNOHANG|WUNTRACED);
     if (p == -1)
     {
@@ -194,8 +193,9 @@ is_job_done (pid_t pid, unsigned int print)
     }
     if (j->content->stopped && print)
     {
-        fprintf (stdout, "[%d]  + %d (%s) suspended\n",
+        fprintf (stdout, "[%d]  %c %d (%s) suspended\n",
                          j->content->job,
+                         l,
                          pid,
                          j->content->cmd);
         /* well, it's a lie but we don't want to print it twice */
@@ -205,8 +205,9 @@ is_job_done (pid_t pid, unsigned int print)
         return FALSE;
     if (WIFEXITED(status) != 0)
     {
-        fprintf (stdout, "[%d]  + %d (%s) done. Returned %d\n",
+        fprintf (stdout, "[%d]  %c %d (%s) done. Returned %d\n",
                          j->content->job,
+                         l,
                          pid,
                          j->content->cmd,
                          WEXITSTATUS(status));
@@ -216,8 +217,9 @@ is_job_done (pid_t pid, unsigned int print)
     else if (WIFSIGNALED(status) != 0)
     {
         int sig = WTERMSIG(status);
-        fprintf (stdout, "[%d]  + %d (%s) interrupted. Signal %d (%s)\n",
+        fprintf (stdout, "[%d]  %c %d (%s) interrupted. Signal %d (%s)\n",
                          j->content->job,
+                         l,
                          pid,
                          j->content->cmd,
                          sig,
@@ -229,7 +231,7 @@ is_job_done (pid_t pid, unsigned int print)
 }
 
 job *
-get_job_by_job (int j)
+get_job_by_job_id (int j)
 {
     job *tmp = list->head;
     while (tmp != NULL)
@@ -245,36 +247,57 @@ command *
 get_last_enqueued_job (unsigned int flush)
 {
     command *ret;
-    if (flush && last != NULL)
+    if (flush && list->tail != NULL)
     {
         xdebug ("cloning job [%d] %d (%s)",
-                last->content->job,
-                last->content->pid,
-                last->content->cmd);
-        ret = copy_command (last->content);
-        int idx = index_of (last->content->pid);
+                list->tail->content->job,
+                list->tail->content->pid,
+                list->tail->content->cmd);
+        ret = copy_command (list->tail->content);
+        int idx = index_of (list->tail->content->pid);
         remove_job (idx);
-        last = NULL;
     }
-    else if (last != NULL)
-        ret = last->content;
+    else if (list->tail != NULL)
+        ret = list->tail->content;
     else
         ret = NULL;
     return ret;
 }
 
 void
-list_jobs (unsigned int print)
+list_jobs (unsigned int print, int *pids, int cpt)
 {
-    job *tmp = list->head;
-    while (tmp != NULL)
+    if (pids == NULL)
     {
-        job *tmp2 = tmp->next;
-        if (!is_job_done (tmp->content->pid, print) && print)
-            fprintf (stdout, "[%d]  + %d (%s) running\n",
-                             tmp->content->job,
-                             tmp->content->pid,
-                             tmp->content->cmd);
-        tmp = tmp2;
+        job *tmp = list->head;
+        while (tmp != NULL)
+        {
+            job *tmp2 = tmp->next;
+            const char l = (tmp == list->tail) ? '+' : '-';
+            if (!is_job_done (tmp->content->pid, print) && print)
+                fprintf (stdout, "[%d]  %c %d (%s) running\n",
+                                 tmp->content->job,
+                                 l,
+                                 tmp->content->pid,
+                                 tmp->content->cmd);
+            tmp = tmp2;
+        }
+    }
+    else
+    {
+        int i;
+        for (i = 0; i < cpt; i++)
+        {
+            if (!is_job_done (pids[i], print) && print)
+            {
+                job *tmp = get_job (index_of (pids[i]));
+                const char l = (tmp == list->tail) ? '+' : '-';
+                fprintf (stdout, "[%d]  %c %d (%s) running\n",
+                                 tmp->content->job,
+                                 l,
+                                 tmp->content->pid,
+                                 tmp->content->cmd);
+            }
+        }
     }
 }
