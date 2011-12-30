@@ -256,8 +256,10 @@ get_last_enqueued_job (unsigned int flush)
         remove_job (idx);
         last = NULL;
     }
-    else
+    else if (last != NULL)
         ret = last->content;
+    else
+        ret = NULL;
     return ret;
 }
 
