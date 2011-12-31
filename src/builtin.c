@@ -96,13 +96,23 @@ sd_exit (int argc, char **argv, int in, int out, int err)
 int
 sd_jobs (int argc, char **argv, int in, int out, int err)
 {
-    (void) argc;
-    (void) argv;
     (void) in;
     (void) out;
     (void) err;
 
-    list_jobs (TRUE, NULL, 0);
+    if (argc == 0)
+    {
+        list_jobs (TRUE, NULL, 0);
+    }
+    else
+    {
+        int *tmp = xcalloc (argc, sizeof (int));
+        int i;
+        for (i = 0; i < argc; i++)
+            tmp[i] = strtoul (argv[i], NULL, 10);
+        list_jobs (TRUE, tmp, argc);
+        xfree (tmp);
+    }
 
     return 0;
 }
@@ -267,38 +277,85 @@ sd_fg (int argc, char **argv, int in, int out, int err)
 
     open_filestream ();
 
-    command *tmp = get_last_enqueued_job (TRUE);
-    if (tmp != NULL)
+    if (argc == 0)
     {
-        int status;
-        int r;
-        tmp->continued = TRUE;
-        if (tmp->stopped)
+        command *tmp = get_last_enqueued_job (TRUE);
+        if (tmp != NULL)
         {
-            sd_print ("[%d]  + continued %d (%s)\n",
-                      tmp->job,
-                      tmp->pid,
-                      tmp->cmd);
-            tmp->stopped = FALSE;
-            kill (tmp->pid, SIGCONT);
+            int status;
+            int r;
+            tmp->continued = TRUE;
+            if (tmp->stopped)
+            {
+                sd_print ("[%d]  + continued %d (%s)\n",
+                          tmp->job,
+                          tmp->pid,
+                          tmp->cmd);
+                tmp->stopped = FALSE;
+                kill (tmp->pid, SIGCONT);
+            }
+            signal (SIGTSTP, sigstophandler);
+            curr = tmp;
+
+            pid_t p = tmp->pid;
+
+            r = waitpid (p, &status, 0);
+            if (r != -1)
+                ret_code = WEXITSTATUS(status);
+            else
+                ret_code = 254;
+
+            free_command (tmp);
         }
-        signal (SIGTSTP, sigstophandler);
-        curr = tmp;
-
-        pid_t p = tmp->pid;
-
-        r = waitpid (p, &status, 0);
-        if (r != -1)
-            ret_code = WEXITSTATUS(status);
         else
+        {
+            sd_printerr ("fg: no jobs enqeued\n");
             ret_code = 254;
-
-        free_command (tmp);
+        }
     }
     else
     {
-        sd_printerr ("fg: no jobs enqeued\n");
-        ret_code = 254;
+        int i;
+        for (i = 0; i < argc; i++)
+        {
+            int status;
+            int r;
+            int index = index_of (strtoul (argv[i], NULL, 10));
+            job *tmp = get_job (index);
+            if (tmp != NULL)
+            {
+                tmp->content->continued = TRUE;
+                if (tmp->content->stopped)
+                {
+                    const char l = (tmp == get_last_job ()) ? '+' : '-';
+                    sd_print ("[%d]  %c continued %d (%s)\n",
+                              tmp->content->job,
+                              l,
+                              tmp->content->pid,
+                              tmp->content->cmd);
+                    tmp->content->stopped = FALSE;
+                    kill (tmp->content->pid, SIGCONT);
+                }
+                signal (SIGTSTP, sigstophandler);
+                curr = copy_command (tmp->content);
+                remove_job (index);
+
+                pid_t p = curr->pid;
+
+                r = waitpid (p, &status, 0);
+                if (r != -1)
+                    ret_code = WEXITSTATUS(status);
+                else
+                    ret_code = 254;
+
+                free_command (curr);
+            }
+            else
+            {
+                sd_printerr ("fg: '%s' no such process\n", argv[i]);
+                ret_code = 254;
+            }
+        }
     }
 
     close_filestream ();

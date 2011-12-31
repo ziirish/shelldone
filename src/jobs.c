@@ -137,7 +137,7 @@ enqueue_job (command *ptr, unsigned int stopped)
                          tmp->content->job, ptr->pid, ptr->cmd);
 }
 
-static int
+int
 index_of (pid_t pid)
 {
     job *tmp = list->head;
@@ -154,7 +154,7 @@ index_of (pid_t pid)
     return i;
 }
 
-static job *
+job *
 get_job (int i)
 {
     if (i < 0)
@@ -169,7 +169,13 @@ get_job (int i)
     return tmp;
 }
 
-static void
+job *
+get_last_job (void)
+{
+    return list->tail;
+}
+
+void
 remove_job (int i)
 {
     list_remove_id ((sdlist **)&list, i, (free_c)free_command);

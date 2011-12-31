@@ -94,4 +94,30 @@ command *get_last_enqueued_job (unsigned int flush);
  */
 void clear_job (job *ptr);
 
+/**
+ * Return the index of the job of the given pid
+ * @param pid PID of the job
+ * @return Index of the job
+ */
+int index_of (pid_t pid);
+
+/**
+ * Return the job of the given index
+ * @param i Index of the job
+ * @return The job
+ */
+job * get_job (int i);
+
+/**
+ * Return the last job in the list
+ * @return The last job
+ */
+job * get_last_job (void);
+
+/**
+ * Remove a job
+ * @param i Index of the job
+ */
+void remove_job (int i);
+
 #endif

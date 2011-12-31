@@ -524,6 +524,8 @@ run_command (command_line *ptrc)
                 else
                     argv = (char *[]){ptr->cmd, NULL};
                 execvp (ptr->cmd, argv);
+                if (ptr->argcf > 0)
+                    xfree (argv);
                 err (1, "%s", ptr->cmd);
             }
         }
