@@ -99,18 +99,35 @@ sd_jobs (int argc, char **argv, int in, int out, int err)
     (void) in;
     (void) out;
     (void) err;
+    unsigned int opts = TRUE;
+    int i;
+    for (i = 0; i < argc; i++)
+        opts = (xstrcmp (argv[i], "-l") == 0 ||
+                xstrcmp (argv[i], "--long") == 0);
 
-    if (argc == 0)
+    if (argc == 0 || (argc > 0 && opts))
     {
-        list_jobs (TRUE, NULL, 0);
+        list_jobs (TRUE, NULL, 0, argc > 0 ? TRUE : FALSE);
     }
     else
     {
         int *tmp = xcalloc (argc, sizeof (int));
-        int i;
-        for (i = 0; i < argc; i++)
-            tmp[i] = strtoul (argv[i], NULL, 10);
-        list_jobs (TRUE, tmp, argc);
+        int i, j;
+        unsigned int details = FALSE;
+        for (i = 0, j = 0; i < argc; i++)
+        {
+            if (xstrcmp (argv[i], "-l") == 0 ||
+                xstrcmp (argv[i], "--long") == 0)
+            {
+                details = TRUE;
+            }
+            else
+            {
+                tmp[j] = strtoul (argv[i], NULL, 10);
+                j++;
+            }
+        }
+        list_jobs (TRUE, tmp, j, details);
         xfree (tmp);
     }
 
@@ -174,14 +191,11 @@ sd_module (int argc, char **argv, int in, int out, int err)
         }
         if (xstrcmp (argv[1], "loaded") == 0)
         {
-            /*
-            sd_print ("\
-Notice: the following list is ordered by 'prio'. A higher prio means the\n\
-plugin is executed lately.\n");
-            */
+            unsigned int loaded = FALSE;
             sdplist *modules = get_modules_list_by_type (PROMPT);
             if (modules != NULL)
             {
+                loaded = TRUE;
                 sdplugin *tmp = modules->head;
                 sd_print ("=== PROMPT ===\n");
                 while (tmp != NULL)
@@ -198,6 +212,7 @@ plugin is executed lately.\n");
             modules = get_modules_list_by_type (PARSING);
             if (modules != NULL)
             {
+                loaded = TRUE;
                 sdplugin *tmp = modules->head;
                 sd_print ("=== PARSING ===\n");
                 while (tmp != NULL)
@@ -214,6 +229,7 @@ plugin is executed lately.\n");
             modules = get_modules_list_by_type (BUILTIN);
             if (modules != NULL)
             {
+                loaded = TRUE;
                 sdplugin *tmp = modules->head;
                 sd_print ("=== BUILTIN ===\n");
                 while (tmp != NULL)
@@ -227,40 +243,77 @@ plugin is executed lately.\n");
                 free_sdplist (modules);
                 modules = NULL;
             }
+            if (loaded)
+            {
+                sd_print ("\
+Notice: the above list is ordered by 'prio'. A higher prio means the plugin\n\
+is executed lately.\n");
+            }
         }
     }
 
     close_filestream ();
     return 0;
 }
+
 int
 sd_bg (int argc, char **argv, int in, int out, int err)
 {
-    (void) argc;
-    (void) argv;
     (void) in;
     int ret = 0;
 
     open_filestream ();
 
-    command *tmp = get_last_enqueued_job (FALSE);
-    if (tmp != NULL)
+    if (argc == 0)
     {
-        tmp->continued = TRUE;
-        if (tmp->stopped)
+        command *tmp = get_last_enqueued_job (FALSE);
+        if (tmp != NULL)
         {
-            sd_print ("[%d]  + continued %d (%s)\n",
-                      tmp->job,
-                      tmp->pid,
-                      tmp->cmd);
-            tmp->stopped = FALSE;
-            kill (tmp->pid, SIGCONT);
+            tmp->continued = TRUE;
+            if (tmp->stopped)
+            {
+                sd_print ("[%d]  + continued %d (%s)\n",
+                          tmp->job,
+                          tmp->pid,
+                          tmp->cmd);
+                tmp->stopped = FALSE;
+                kill (tmp->pid, SIGCONT);
+            }
+        }
+        else
+        {
+            sd_printerr ("bg: no jobs enqeued\n");
+            ret = 254;
         }
     }
     else
     {
-        sd_printerr ("bg: no jobs enqeued\n");
-        ret = 254;
+        int i;
+        for (i = 0; i < argc; i++)
+        {
+            int index = index_of (strtoul (argv[i], NULL, 10));
+            job *tmp = get_job (index);
+            if (tmp != NULL)
+            {
+                tmp->content->continued = TRUE;
+                if (tmp->content->stopped)
+                {
+                    const char l = (tmp == get_last_job ()) ? '+' : '-';
+                    sd_print ("[%d]  %c continued %d (%s)\n",
+                              tmp->content->job,
+                              l,
+                              tmp->content->pid,
+                              tmp->content->cmd);
+                    tmp->content->stopped = FALSE;
+                    kill (tmp->content->pid, SIGCONT);
+                }
+            }
+            else
+            {
+                sd_printerr ("bg: '%s' no such process\n", argv[i]);
+                ret_code = 254;
+            }
+        }
     }
 
     close_filestream ();
@@ -271,8 +324,6 @@ sd_bg (int argc, char **argv, int in, int out, int err)
 int
 sd_fg (int argc, char **argv, int in, int out, int err)
 {
-    (void) argc;
-    (void) argv;
     (void) in;
 
     open_filestream ();

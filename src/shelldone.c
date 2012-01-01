@@ -169,7 +169,7 @@ shelldone_loop (void)
         {
             pt = "shell> ";
         }
-        list_jobs (FALSE, NULL, 0);
+        list_jobs (FALSE, NULL, 0, FALSE);
         /* read the input line */
         li = read_line (pt);
         if (xstrcmp ("quit", li) == 0)

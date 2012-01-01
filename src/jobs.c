@@ -182,7 +182,7 @@ remove_job (int i)
 }
 
 static unsigned int
-is_job_done (pid_t pid, unsigned int print)
+is_job_done (pid_t pid, unsigned int print, unsigned int details)
 {
     int status;
     int idx = index_of (pid);
@@ -197,13 +197,42 @@ is_job_done (pid_t pid, unsigned int print)
         remove_job (idx);
         return TRUE;
     }
+    if (j == NULL)
+    {
+        fprintf (stderr, "'%d': no such job\n", pid);
+        return TRUE;
+    }
     if (j->content->stopped && print)
     {
-        fprintf (stdout, "[%d]  %c %d (%s) suspended\n",
-                         j->content->job,
-                         l,
-                         pid,
-                         j->content->cmd);
+        if (details)
+        {
+            int i;
+            fprintf (stdout, "[%d]  %c %d suspended: %s",
+                             j->content->job,
+                             l,
+                             pid,
+                             j->content->cmd);
+            for (i = 0; i < j->content->argc; i++)
+            {
+                char q;
+                switch (j->content->protected[i])
+                {
+                    case NONE: q = '\0'; break;
+                    case DOUBLE_QUOTE: q = '"'; break;
+                    case SINGLE_QUOTE: q = '\'';
+                }
+                fprintf (stdout, " %c%s%c", q, j->content->argv[i], q);
+            }
+            fprintf (stdout, "\n");
+        }
+        else
+        {
+            fprintf (stdout, "[%d]  %c %d (%s) suspended\n",
+                             j->content->job,
+                             l,
+                             pid,
+                             j->content->cmd);
+        }
         /* well, it's a lie but we don't want to print it twice */
         return TRUE;
     }
@@ -271,7 +300,7 @@ get_last_enqueued_job (unsigned int flush)
 }
 
 void
-list_jobs (unsigned int print, int *pids, int cpt)
+list_jobs (unsigned int print, int *pids, int cpt, unsigned int details)
 {
     if (pids == NULL)
     {
@@ -280,12 +309,41 @@ list_jobs (unsigned int print, int *pids, int cpt)
         {
             job *tmp2 = tmp->next;
             const char l = (tmp == list->tail) ? '+' : '-';
-            if (!is_job_done (tmp->content->pid, print) && print)
-                fprintf (stdout, "[%d]  %c %d (%s) running\n",
-                                 tmp->content->job,
-                                 l,
-                                 tmp->content->pid,
-                                 tmp->content->cmd);
+            if (!is_job_done (tmp->content->pid, print, details) && print)
+            {
+                if (details)
+                {
+                    int i;
+                    fprintf (stdout, "[%d]  %c %d running: %s",
+                                     tmp->content->job,
+                                     l,
+                                     tmp->content->pid,
+                                     tmp->content->cmd);
+                    for (i = 0; i < tmp->content->argc; i++)
+                    {
+                        char q;
+                        switch (tmp->content->protected[i])
+                        {
+                            case NONE: q = '\0'; break;
+                            case DOUBLE_QUOTE: q = '"'; break;
+                            case SINGLE_QUOTE: q = '\'';
+                        }
+                        fprintf (stdout, " %c%s%c",
+                                         q,
+                                         tmp->content->argv[i],
+                                         q);
+                    }
+                    fprintf (stdout, "\n");
+                }
+                else
+                {
+                    fprintf (stdout, "[%d]  %c %d (%s) running\n",
+                                     tmp->content->job,
+                                     l,
+                                     tmp->content->pid,
+                                     tmp->content->cmd);
+                }
+            }
             tmp = tmp2;
         }
     }
@@ -294,15 +352,42 @@ list_jobs (unsigned int print, int *pids, int cpt)
         int i;
         for (i = 0; i < cpt; i++)
         {
-            if (!is_job_done (pids[i], print) && print)
+            if (!is_job_done (pids[i], print, details) && print)
             {
                 job *tmp = get_job (index_of (pids[i]));
                 const char l = (tmp == list->tail) ? '+' : '-';
-                fprintf (stdout, "[%d]  %c %d (%s) running\n",
-                                 tmp->content->job,
-                                 l,
-                                 tmp->content->pid,
-                                 tmp->content->cmd);
+                if (details)
+                {
+                    int j;
+                    fprintf (stdout, "[%d]  %c %d running: %s",
+                                     tmp->content->job,
+                                     l,
+                                     tmp->content->pid,
+                                     tmp->content->cmd);
+                    for (j = 0; j < tmp->content->argc; j++)
+                    {
+                        char q;
+                        switch (tmp->content->protected[j])
+                        {
+                            case NONE: q = '\0'; break;
+                            case DOUBLE_QUOTE: q = '"'; break;
+                            case SINGLE_QUOTE: q = '\'';
+                        }
+                        fprintf (stdout, " %c%s%c",
+                                         q,
+                                         tmp->content->argv[j],
+                                         q);
+                    }
+                    fprintf (stdout, "\n");
+                }
+                else
+                {
+                    fprintf (stdout, "[%d]  %c %d (%s) running\n",
+                                     tmp->content->job,
+                                     l,
+                                     tmp->content->pid,
+                                     tmp->content->cmd);
+                }
             }
         }
     }

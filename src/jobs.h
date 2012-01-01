@@ -65,7 +65,7 @@ void enqueue_job (command *ptr, unsigned int stopped);
  * List running jobs or finished jobs
  * @param print If TRUE prints running jobs
  */
-void list_jobs (unsigned int print, int *pids, int cpt);
+void list_jobs (unsigned int print, int *pids, int cpt, unsigned int details);
 
 /* Initialize jobs list */
 void init_jobs (void);
