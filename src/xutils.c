@@ -303,18 +303,23 @@ xstrsub (const char *src, int begin, int len)
     return ret;
 }
 
+/**
+ * Prints a debug message if the DEBUG flag is enabled at the compilation time
+ * @param file Which source-file calls the function
+ * @param func In which function
+ * @param line At which line
+ * @param format The format message we'd like to print
+ * @param ... optional arguments to pass to the format string
+ */
 void
 xadebug (const char *file, const char *func, int line, const char *format, ...)
 {
 #ifdef DEBUG
-    va_list args;
-    fprintf (stdout, "[D] %s:%d %s", file, line, func);
+    fprintf (stdout, "[D] %s:%d    %s()", file, line, func);
     if (format != NULL)
     {
-        va_start (args, format);
         fprintf (stdout, " => ");
         vfprintf (stdout, format, args);
-        va_end (args);
     }
     fprintf (stdout, "\n");
 #else
@@ -326,4 +331,3 @@ xadebug (const char *file, const char *func, int line, const char *format, ...)
 
     return;
 }
-

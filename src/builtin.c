@@ -96,9 +96,6 @@ sd_exit (int argc, char **argv, int in, int out, int err)
 int
 sd_jobs (int argc, char **argv, int in, int out, int err)
 {
-    (void) in;
-    (void) out;
-    (void) err;
     unsigned int opts = TRUE;
     int i;
     for (i = 0; i < argc; i++)
@@ -107,7 +104,7 @@ sd_jobs (int argc, char **argv, int in, int out, int err)
 
     if (argc == 0 || (argc > 0 && opts))
     {
-        list_jobs (TRUE, NULL, 0, argc > 0 ? TRUE : FALSE);
+        list_jobs (TRUE, NULL, 0, (argc > 0));
     }
     else
     {
@@ -131,14 +128,15 @@ sd_jobs (int argc, char **argv, int in, int out, int err)
         xfree (tmp);
     }
 
+    (void) in;
+    (void) out;
+    (void) err;
     return 0;
 }
 
 int
 sd_module (int argc, char **argv, int in, int out, int err)
 {
-    (void) in;
-
     open_filestream ();
 
     if (argc < 1)
@@ -195,8 +193,8 @@ sd_module (int argc, char **argv, int in, int out, int err)
             sdplist *modules = get_modules_list_by_type (PROMPT);
             if (modules != NULL)
             {
-                loaded = TRUE;
                 sdplugin *tmp = modules->head;
+                loaded = TRUE;
                 sd_print ("=== PROMPT ===\n");
                 while (tmp != NULL)
                 {
@@ -212,8 +210,8 @@ sd_module (int argc, char **argv, int in, int out, int err)
             modules = get_modules_list_by_type (PARSING);
             if (modules != NULL)
             {
-                loaded = TRUE;
                 sdplugin *tmp = modules->head;
+                loaded = TRUE;
                 sd_print ("=== PARSING ===\n");
                 while (tmp != NULL)
                 {
@@ -229,8 +227,8 @@ sd_module (int argc, char **argv, int in, int out, int err)
             modules = get_modules_list_by_type (BUILTIN);
             if (modules != NULL)
             {
-                loaded = TRUE;
                 sdplugin *tmp = modules->head;
+                loaded = TRUE;
                 sd_print ("=== BUILTIN ===\n");
                 while (tmp != NULL)
                 {
@@ -253,13 +251,15 @@ is executed lately.\n");
     }
 
     close_filestream ();
+
+    (void) in;
+
     return 0;
 }
 
 int
 sd_bg (int argc, char **argv, int in, int out, int err)
 {
-    (void) in;
     int ret = 0;
 
     open_filestream ();
@@ -318,14 +318,13 @@ sd_bg (int argc, char **argv, int in, int out, int err)
 
     close_filestream ();
 
+    (void) in;
     return ret;
 }
 
 int
 sd_fg (int argc, char **argv, int in, int out, int err)
 {
-    (void) in;
-
     open_filestream ();
 
     if (argc == 0)
@@ -335,6 +334,7 @@ sd_fg (int argc, char **argv, int in, int out, int err)
         {
             int status;
             int r;
+            pid_t p;
             tmp->continued = TRUE;
             if (tmp->stopped)
             {
@@ -348,7 +348,7 @@ sd_fg (int argc, char **argv, int in, int out, int err)
             signal (SIGTSTP, sigstophandler);
             curr = tmp;
 
-            pid_t p = tmp->pid;
+            p = tmp->pid;
 
             r = waitpid (p, &status, 0);
             if (r != -1)
@@ -375,6 +375,7 @@ sd_fg (int argc, char **argv, int in, int out, int err)
             job *tmp = get_job (index);
             if (tmp != NULL)
             {
+                pid_t p;
                 tmp->content->continued = TRUE;
                 if (tmp->content->stopped)
                 {
@@ -391,7 +392,7 @@ sd_fg (int argc, char **argv, int in, int out, int err)
                 curr = copy_command (tmp->content);
                 remove_job (index);
 
-                pid_t p = curr->pid;
+                p = curr->pid;
 
                 r = waitpid (p, &status, 0);
                 if (r != -1)
@@ -410,6 +411,7 @@ sd_fg (int argc, char **argv, int in, int out, int err)
     }
 
     close_filestream ();
+    (void) in;
 
     return ret_code;
 }
