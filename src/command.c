@@ -212,17 +212,17 @@ compare_command (command *c1, command *c2)
     int ret = 0;
     if (c1 != NULL && c2 != NULL)
     {
-        int c, d;
+        int c, i;
         if ((c = xstrcmp (c1->cmd, c2->cmd)) != 0)
             return c;
         if (c1->argc != c2->argc)
             return (c1->argc - c2->argc);
-        for (c = 0; c < c1->argc; c++)
+        for (i = 0; i < c1->argc; i++)
         {
-            if ((d = xstrcmp (c1->argv[c], c2->argv[c])) != 0)
-                return d;
-            if (c1->protected[c] != c2->protected[c])
-                return (c1->protected[c] - c2->protected[c]);
+            if ((c = xstrcmp (c1->argv[i], c2->argv[i])) != 0)
+                return c;
+            if (c1->protected[i] != c2->protected[i])
+                return (c1->protected[i] - c2->protected[i]);
         }
     }
     return ret;
@@ -393,8 +393,7 @@ run_command (command_line *ptrc)
         ptr->argcf = ptr->argc;
     }
     curr = ptr;
-    pid_t r = -1, ppid;
-    ppid = getpid ();
+    pid_t r = -1;
     if (ptr != NULL)
     {
         size_t len = xstrlen (ptr->cmd);
