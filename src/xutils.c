@@ -224,6 +224,69 @@ xstrsplit (const char *src, const char *token, size_t *size)
     return ret;
 }
 
+char **
+xstrsplitspace (const char *src, size_t *size)
+{
+    char **ret;
+    int i, idx, len, j;
+    size_t tot = xstrlen (src);
+    unsigned int nospace = FALSE;
+    *size = 0;
+    for (i = 0; i < (int) tot; i++)
+    {
+        if (src[i] == ' ')
+        {
+            if (i == 0 || (i > 0 && src[i-1] != '\\' && src[i-1] != ' '))
+                (*size)++;
+        }
+        else
+            nospace = TRUE;
+    }
+    if (*size == 0 || !nospace)
+    {
+        *size = 1;
+        ret = xcalloc (1, sizeof (char *));
+        ret[0] = xstrdup (src);
+        return ret;
+    }
+    if (i > 0 && src[i-1] != ' ')
+        (*size)++;
+    ret = xcalloc (*size, sizeof (char *));
+    idx = 0;
+    len = 0;
+    j = 0;
+    for (i = 0; i < (int) tot; i++)
+    {
+        if (src[i] == ' ')
+        {
+            if (i == 0)
+            {
+                while (src[i] == ' ' && i < (int) tot)
+                    i++;
+                idx = i;
+            }
+            else if (i > 0 && src[i-1] != '\\' && src[i-1] != ' ')
+            {
+                len = i - idx;
+                ret[j] = xmalloc ((len + 1) * sizeof (char));
+                snprintf (ret[j], len+1, "%s", src+idx);
+                j++;
+                while (src[i] == ' ' && i < (int) tot)
+                    i++;
+                idx = i;
+            }
+        }
+    }
+    if (i > 0 && src[i-1] != ' ')
+    {
+        len = i - idx;
+        ret[j] = xmalloc ((len + 1) * sizeof (char));
+        snprintf (ret[j], len+1, "%s", src+idx);
+    }
+
+    return ret;
+}
+
 char *
 xstrjoin (char **tab, int size, const char *join)
 {

@@ -91,7 +91,9 @@ static char get_char (const char input[5],
                       const char *prompt,
                       char **ret,
                       int *cpt,
-                      int *n);
+                      int *n,
+                      unsigned int *squote,
+                      unsigned int *dquote);
 static char *parse_filepath (char **split,
                              size_t s_split,
                              char *tmp,
@@ -714,7 +716,8 @@ completion (const char *prompt, char *buf, int *ind)
     tmp[k] = '\0';
     /* to_split is split ready meaning each commands are separated by spaces */
     to_split[i] = '\0';
-    split = xstrsplit (to_split, " ", &s_split);
+    split = xstrsplitspace (to_split, &s_split);
+    /*split = xstrsplit (to_split, " ", &s_split);*/
     xfree (to_split);
     if (s_split > 1 || (
         (j > 2 && tmp[j-1] == ' ' && tmp[j-2] != '\\') ||
@@ -869,7 +872,9 @@ parse_line (const char *l)
          * a 'space' found outside a quotation means we have done the current
          * command/argument
          */
-        if (l[cpt] == ' ' && !(squote || dquote))
+        if (l[cpt] == ' ' &&
+            !(squote || dquote) &&
+            (cpt == 0 || (cpt > 0 && l[cpt-1] != '\\')))
         {
             cpt++;
             /* 
@@ -1226,7 +1231,9 @@ get_char (const char input[5],
           const char *prompt, 
           char **ret, 
           int *cpt, 
-          int *n)
+          int *n,
+          unsigned int *squote,
+          unsigned int *dquote)
 {
     size_t len;
     (void) prompt;
@@ -1245,6 +1252,10 @@ get_char (const char input[5],
         case 127:
             if (*cpt > 0)
             {
+                if ((*ret)[*cpt-1] == '"' && *dquote && !*squote)
+                    *dquote = FALSE;
+                if ((*ret)[*cpt-1] == '\'' && *squote && !*dquote)
+                    *squote = FALSE;
                 (*cpt)--;
                 fprintf (stdout, "\b \b");
                 fflush (stdout);
@@ -1267,6 +1278,8 @@ get_char (const char input[5],
         case 'A':
             if (curr_history > 0 && history[curr_history-1] != NULL)
             {
+                *dquote = FALSE;
+                *squote = FALSE;
                 for (; *cpt > 0; (*cpt)--)
                     fprintf (stdout, "\b \b");
                 fprintf (stdout, "%s", history[curr_history-1]);
@@ -1279,6 +1292,10 @@ get_char (const char input[5],
                         (*n)++;
                         *ret = xrealloc (*ret, *n * BUF * sizeof (char));
                     }
+                    if (history[curr_history][*cpt] == '"' && !*squote)
+                        *dquote = !*dquote;
+                    if (history[curr_history][*cpt] == '\'' && !*dquote)
+                        *squote = !*squote;
                     (*ret)[*cpt] = history[curr_history][*cpt];
                 }
             }
@@ -1287,6 +1304,8 @@ get_char (const char input[5],
         case 'B':
             for (; *cpt > 0; (*cpt)--)
                 fprintf (stdout, "\b \b");
+            *squote = FALSE;
+            *dquote = FALSE;
             if (curr_history < last_history && history[curr_history+1] != NULL)
             {
                 if (history[curr_history+1] != NULL)
@@ -1300,6 +1319,10 @@ get_char (const char input[5],
                             (*n)++;
                             *ret = xrealloc (*ret, *n * BUF * sizeof (char));
                         }
+                        if (history[curr_history][*cpt] == '"' && !*squote)
+                            *dquote = !*dquote;
+                        if (history[curr_history][*cpt] == '\'' && !*dquote)
+                            *squote = !*squote;
                         (*ret)[*cpt] = history[curr_history][*cpt];
                     }
                 }
@@ -1322,6 +1345,10 @@ get_char (const char input[5],
                 (*n)++;
                 *ret = xrealloc (*ret, *n * BUF * sizeof (char));
             }
+            if (input[i] == '"' && !*squote)
+                *dquote = !*dquote;
+            if (input[i] == '\'' && !*dquote)
+                *squote = !*squote;
             (*ret)[*cpt] = input[i];
             fprintf (stdout, "%c", input[i]);
             i++;
@@ -1335,8 +1362,8 @@ char *
 read_line (const char *prompt)
 {
     char *ret = xmalloc (BUF * sizeof (char));
-    int cpt = 0, ind = 1, nb_lines = 0, antislashes = 0, read_tmp = 0,
-        squote = 0, dquote = 0;
+    int cpt = 0, ind = 1, nb_lines = 0, antislashes = 0, read_tmp = 0;
+    unsigned int squote = FALSE, dquote = FALSE;
     char in[5], tmp[5], c = -1;
     curr_history = last_history;
     reset_completion ();
@@ -1352,7 +1379,7 @@ read_line (const char *prompt)
     {
         memset (in, 0, 5);
         sh_read (shell_terminal, &in, 5);
-        c = get_char (in, prompt, &ret, &cpt, &ind);
+        c = get_char (in, prompt, &ret, &cpt, &ind, &squote, &dquote);
     } while (c == -1);
     while ((c != '\n' && c != EOF) ||
            (c == '\n' && (squote || dquote)) || 
@@ -1380,7 +1407,7 @@ read_line (const char *prompt)
             {
                 memset (in, 0, 5);
                 sh_read (shell_terminal, &in, 5);
-                c = get_char (in, prompt, &ret, &cpt, &ind);
+                c = get_char (in, prompt, &ret, &cpt, &ind, &squote, &dquote);
             } while (c == -1);
             continue;
         }
@@ -1405,7 +1432,7 @@ read_line (const char *prompt)
             {
                 memset (tmp, 0, 5);
                 sh_read (shell_terminal, &tmp, 5);
-                ctmp = get_char (tmp, prompt, &ret, &cpt, &ind);
+                ctmp = get_char (tmp, prompt, &ret, &cpt, &ind, &squote, &dquote);
             } while (ctmp == -1);
             if (ctmp == '\n')
             {
@@ -1423,7 +1450,7 @@ read_line (const char *prompt)
             {
                 memset (in, 0, 5);
                 sh_read (shell_terminal, &in, 5);
-                c = get_char (in, prompt, &ret, &cpt, &ind);
+                c = get_char (in, prompt, &ret, &cpt, &ind, &squote, &dquote);
             } while (c == -1);
             nb_lines++;
             continue;
@@ -1444,7 +1471,7 @@ replay:
         {
             read_tmp = 0;
             ret[cpt] = c;
-            c = get_char (tmp, prompt, &ret, &cpt, &ind);
+            c = get_char (tmp, prompt, &ret, &cpt, &ind, &squote, &dquote);
             cpt++;
             fprintf (stdout, "%c", c);
             fflush (stdout);
@@ -1456,7 +1483,7 @@ replay:
         {
             memset (in, 0, 5);
             sh_read (shell_terminal, &in, 5);
-            c = get_char (in, prompt, &ret, &cpt, &ind);
+            c = get_char (in, prompt, &ret, &cpt, &ind, &squote, &dquote);
         } while (c == -1);
     }
     fprintf (stdout, "\n");

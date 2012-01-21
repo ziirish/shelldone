@@ -169,4 +169,13 @@ void xadebug (const char *file,
               const char *format,
               ...);
 
+/**
+ * Spits a string into a table of strings using ' ' as tokenizer.
+ * Also, each protected space won't be splitted (ie: '\ ').
+ * @param src The string to split
+ * @param size The size of the returned table
+ * @return a table of strings
+ */
+char **xstrsplitspace (const char *src, size_t *size);
+
 #endif
