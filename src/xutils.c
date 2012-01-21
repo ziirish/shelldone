@@ -378,11 +378,14 @@ void
 xadebug (const char *file, const char *func, int line, const char *format, ...)
 {
 #ifdef DEBUG
+    va_list args;
     fprintf (stdout, "[D] %s:%d    %s()", file, line, func);
     if (format != NULL)
     {
+        va_start (args, format);
         fprintf (stdout, " => ");
         vfprintf (stdout, format, args);
+        va_end (args);
     }
     fprintf (stdout, "\n");
 #else

@@ -205,6 +205,26 @@ sd_module (int argc, char **argv, int in, int out, int err)
         xfree (path);
     }
 
+    if (xstrcmp (argv[0], "unload") == 0)
+    {
+        if (argc != 2)
+        {
+            sd_printerr ("module unload: missing argument\n");
+            sd_print ("usage:\n\tmodule unload <module>\n");
+            close_filestream ();
+            return 2;
+        }
+
+        if (!is_module_present (argv[1]))
+        {
+            sd_printerr ("module '%s' not present\n", argv[1]);
+            close_filestream ();
+            return 3;
+        }
+
+        unload_module_by_name (argv[1]);
+    }
+
     if (xstrcmp (argv[0], "list") == 0)
     {
         if (argc != 2)

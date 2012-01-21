@@ -355,8 +355,8 @@ unload_module_by_name (const char *name)
         if (xstrcmp (tmp->content->name, name) == 0)
         {
             unload_module (tmp->content);
-            free_sdplugin (tmp);
-            list_remove_id ((sdlist **)modules_list, cpt, NULL);
+            free_sdplugindata (tmp->content);
+            list_remove_id ((sdlist **)&modules_list, cpt, NULL);
             break;
         }
         tmp = tmp->next;
