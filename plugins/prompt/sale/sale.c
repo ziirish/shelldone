@@ -66,7 +66,10 @@ get_prompt (void)
     }
 
     tmp = xstrsplit (full_pwd, "/", &size);
-    pwd = xstrjoin (tmp, size, "\\");
+    if (size > 0)
+        pwd = xstrjoin (tmp, size, "\\");
+    else
+        pwd = xstrdup ("\\");
     xfree_list (tmp, size);
 
     xfree (prompt);
