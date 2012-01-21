@@ -47,8 +47,7 @@ static const char *fpwd = NULL;
 
 /**
  * Gets the prompt in a hard-coded pattern like:
- * user@hostname:pwd$
- * We can imagine make it configurable in the future
+ * C:\path>
  * @return The prompt
  */
 static const char *
