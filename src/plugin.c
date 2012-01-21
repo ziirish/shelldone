@@ -31,11 +31,17 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+#ifndef _BSD_SOURCE
+     #define _BSD_SOURCE
+#endif
+
 #include <stdlib.h>
 #include <unistd.h>
 #include <dlfcn.h>
 #include <stdio.h>
 #include <string.h>
+#include <dirent.h>
+#include <sys/stat.h>
 
 #include "sdlib/plugin.h"
 #include "modules.h"
@@ -47,25 +53,70 @@ static sdplugindata *new_sdplugindata (void);
 static sdplugin *new_sdplugin (void);
 static void unload_all_modules (void);
 static int module_equals (void *c1, void *c2);
-static unsigned int is_module_present (const char *name);
 static void free_sdplugindata (sdplugindata *ptr);
 static void free_sdplugin (sdplugin *ptr);
 
 static sdplist *modules_list = NULL;
+static int nb_modules = 255;
+int nb_found = 0;
+mod mods[255];
 
 void
 init_modules (void)
 {
+    struct dirent **files = NULL;
+    int nbfiles = scandir (SDPLDIR, &files, NULL, NULL);
+    int i, j;
     xdebug (NULL);
     modules_list = new_sdplist ();
+    for (i = 0; i < nbfiles; i++)
+    {
+        if (S_ISDIR(DTTOIF(files[i]->d_type)) && 
+            xstrcmp (files[i]->d_name, ".") != 0 &&
+            xstrcmp (files[i]->d_name, "..") != 0)
+        {
+            struct dirent **subfiles = NULL;
+            int nbsubfiles;
+            char *path;
+            size_t len = xstrlen (SDPLDIR) + xstrlen (files[i]->d_name) + 2;
+            path = xmalloc (len * sizeof (char));
+            snprintf (path, len, "%s/%s", SDPLDIR, files[i]->d_name);
+            nbsubfiles = scandir (path, &subfiles, NULL, NULL);
+            xfree (path);
+            for (j = 0; j < nbsubfiles; j++)
+            {
+                if (nb_found < nb_modules &&
+                    S_ISDIR(DTTOIF(subfiles[j]->d_type)) &&
+                    xstrcmp (subfiles[j]->d_name, ".") != 0 &&
+                    xstrcmp (subfiles[j]->d_name, "..") != 0)
+                {
+                    mods[nb_found].type = xstrdup (files[i]->d_name);
+                    mods[nb_found].name = xstrdup (subfiles[j]->d_name);
+                    nb_found++;
+                }
+                xfree (subfiles[j]);
+            }
+            xfree (subfiles);
+        }
+        xfree (files[i]);
+    }
+    xfree (files);
 }
 
 void
 clear_modules (void)
 {
+    int i;
     xdebug (NULL);
     unload_all_modules ();
     free_sdplist (modules_list);
+    
+    for (i = 0; i < nb_found; i++)
+    {
+        xfree (mods[i].type);
+        xfree (mods[i].name);
+    }
+    
 }
 
 static void
@@ -219,7 +270,7 @@ module_equals (void *c1, void *c2)
     return xstrcmp (tmp->name, tmp2->name);
 }
 
-static unsigned int
+unsigned int
 is_module_present (const char *name)
 {
     sdplugindata *tmp = new_sdplugindata ();

@@ -81,6 +81,9 @@ do{                                        \
 extern int ret_code;
 extern command *curr;
 
+extern mod mods[];
+extern int nb_found;
+
 int
 sd_exit (int argc, char **argv, int in, int out, int err)
 {
@@ -175,7 +178,31 @@ sd_module (int argc, char **argv, int in, int out, int err)
             close_filestream ();
             return 2;
         }
-        load_module (argv[1]);
+        char *path;
+        int i;
+        size_t len;
+        unsigned int found = FALSE;
+        for (i = 0; i < nb_found; i++)
+        {
+            if (xstrcmp (argv[1], mods[i].name) == 0)
+            {
+                found = TRUE;
+                len = (xstrlen (argv[1]) * 2) + xstrlen (SDPLDIR) + 7 +
+                      xstrlen (mods[i].type);
+                break;
+            }
+        }
+        if (!found)
+        {
+            sd_printerr ("module load: unable to find module '%s'\n", argv[1]);
+            close_filestream ();
+            return 3;
+        }
+        path = xmalloc (len * sizeof (char));
+        snprintf (path, len, "%s/%s/%s/%s.so", SDPLDIR, mods[i].type,
+                                               argv[1], argv[1]);
+        load_module (path);
+        xfree (path);
     }
 
     if (xstrcmp (argv[0], "list") == 0)
@@ -247,6 +274,15 @@ sd_module (int argc, char **argv, int in, int out, int err)
 Notice: the above list is ordered by 'prio'. A higher prio means the plugin\n\
 is executed lately.\n");
             }
+        }
+        else if (xstrcmp (argv[1], "available") == 0)
+        {
+            int i;
+            for (i = 0; i < nb_found; i++)
+                sd_print ("%20s (type: %s)\t[%s]\n",
+                          mods[i].name,
+                          mods[i].type,
+                          is_module_present (mods[i].name) ? "X" : " ");
         }
     }
 

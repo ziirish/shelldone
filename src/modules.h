@@ -36,6 +36,13 @@
 
 #include "sdlib/plugin.h"
 
+typedef struct _mod mod;
+
+struct _mod {
+    char *type;
+    char *name;
+};
+
 /* Initialize modules list */
 void init_modules (void);
 
@@ -78,5 +85,12 @@ void load_module (const char *path);
  * @param ptr List to free
  */
 void free_sdplist (sdplist *ptr);
+
+/**
+ * Check if a module is already present in the stack
+ * @param name Name of the module we want to test
+ * @return TRUE if the module is present
+ */
+unsigned int is_module_present (const char *name);
 
 #endif
