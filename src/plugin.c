@@ -58,14 +58,17 @@ static void free_sdplugin (sdplugin *ptr);
 
 static sdplist *modules_list = NULL;
 static int nb_modules = 255;
+
 int nb_found = 0;
 mod mods[255];
+
+extern char *plugindir;
 
 void
 init_modules (void)
 {
     struct dirent **files = NULL;
-    int nbfiles = scandir (SDPLDIR, &files, NULL, NULL);
+    int nbfiles = scandir (plugindir, &files, NULL, NULL);
     int i, j;
     xdebug (NULL);
     modules_list = new_sdplist ();
@@ -78,9 +81,9 @@ init_modules (void)
             struct dirent **subfiles = NULL;
             int nbsubfiles;
             char *path;
-            size_t len = xstrlen (SDPLDIR) + xstrlen (files[i]->d_name) + 2;
+            size_t len = xstrlen (plugindir) + xstrlen (files[i]->d_name) + 2;
             path = xmalloc (len * sizeof (char));
-            snprintf (path, len, "%s/%s", SDPLDIR, files[i]->d_name);
+            snprintf (path, len, "%s/%s", plugindir, files[i]->d_name);
             nbsubfiles = scandir (path, &subfiles, NULL, NULL);
             xfree (path);
             for (j = 0; j < nbsubfiles; j++)
@@ -115,8 +118,10 @@ clear_modules (void)
     {
         xfree (mods[i].type);
         xfree (mods[i].name);
+        mods[i].name = NULL;
+        mods[i].type = NULL;
     }
-    
+    nb_found = 0;
 }
 
 static void
@@ -375,6 +380,35 @@ unload_module (sdplugindata *ptr)
             dlclose (ptr->lib);
         ptr->loaded = FALSE;
     }
+}
+
+unsigned int
+load_module_by_name (const char *name)
+{
+    char *path;
+    int i;
+    size_t len;
+    unsigned int found = FALSE;
+    for (i = 0; i < nb_found; i++)
+    {
+        if (xstrcmp (name, mods[i].name) == 0)
+        {
+            found = TRUE;
+            len = (xstrlen (name) * 2) + xstrlen (plugindir) + 7 +
+                  xstrlen (mods[i].type);
+            break;
+        }
+    }
+    if (!found)
+        return FALSE;
+
+    path = xmalloc (len * sizeof (char));
+    snprintf (path, len, "%s/%s/%s/%s.so", plugindir, mods[i].type,
+                                           name, name);
+    load_module (path);
+    xfree (path);
+
+    return TRUE;
 }
 
 void

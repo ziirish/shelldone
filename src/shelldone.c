@@ -43,6 +43,7 @@
 #include <signal.h>
 #include <err.h>
 #include <setjmp.h>
+#include <getopt.h>
 
 #include "xutils.h"
 #include "parser.h"
@@ -50,9 +51,6 @@
 #include "jobs.h"
 #include "modules.h"
 
-/**
- * XXX: is there a better way to store these variables?
- */
 pid_t shell_pgid;
 int shell_terminal;
 int shell_is_interactive;
@@ -62,6 +60,7 @@ unsigned int interrupted = FALSE;
 unsigned int running = FALSE;
 sigjmp_buf env;
 int val;
+char *plugindir;
 
 static void shelldone_init (void);
 static void shelldone_clean (void);
@@ -73,6 +72,7 @@ static void
 shelldone_init (void)
 {
     xdebug (NULL);
+    plugindir = SDPLDIR;
     /* See if we are running interactively */
     shell_terminal = STDIN_FILENO;
     shell_is_interactive = isatty (shell_terminal);
@@ -183,13 +183,76 @@ shelldone_loop (void)
         running = TRUE;
         run_line (l);
         running = FALSE;
+    }
+}
 
-/*
-        free_line (l);
-        xfree (li);
-        l = NULL;
-        li = NULL;
-*/
+static void
+shelldone_read_args (int argc, char **argv)
+{
+    int c;
+    /*int digit_optind = 0;*/
+
+    while (1) {
+        /*int this_option_optind = optind ? optind : 1;*/
+        int option_index = 0;
+        static struct option long_options[] = {
+                {"dir",     required_argument, 0, 'd'},
+                {"load",    required_argument, 0, 'l'},
+                {"help",    no_argument      , 0, 'h'},
+                {0,         0,                 0,  0 }
+                };
+
+        c = getopt_long(argc, argv, "d:l:h",
+                        long_options, &option_index);
+
+        if (c == -1)
+            break;
+
+        switch (c)
+        {
+        case 'd':
+            plugindir = optarg;
+            fprintf (stdout, "searching plugins in '%s'\n", plugindir);
+            clear_modules ();
+            init_modules ();
+            break;
+
+        case 'l': {
+            size_t nb;
+            int i;
+            char **plugins = xstrsplit (optarg, ",", &nb);
+            for (i = 0; i < (int) nb; i++)
+                if (!load_module_by_name (plugins[i]))
+                    fprintf (stderr, "Unable to load module '%s'\n",
+                                     plugins[i]);
+            xfree_list (plugins, nb);
+            break;
+        }
+
+        case '?':
+        case 'h':
+            fprintf (stdout, "\
+Shelldone is a shell written from scratch in C. It is just a Proof of Concept\n\
+to improve my programming skills and have some fun.\n\
+usage:\n\
+    shelldone [-d|--dir=<where are the plugins>]\n\
+              [-l|--load=plugin1[,plugin2[...]]]\n\
+              [-h|-?|--help]\n\
+\n\
+");
+            exit (0);
+            break;
+
+        default:
+            printf("?? getopt returned character code 0%o ??\n", c);
+        }
+    }
+
+    if (optind < argc) {
+        printf("non-option ARGV-elements: ");
+        while (optind < argc)
+            printf("%s ", argv[optind++]);
+        printf("\n");
     }
 }
 
@@ -198,6 +261,9 @@ main (int argc, char **argv)
 {
     /* initializing shelldone */
     shelldone_init ();
+
+    /* reading arguments */
+    shelldone_read_args (argc, argv);
 
     /* infinite loop waiting for commands to launch */
     shelldone_loop ();

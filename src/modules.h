@@ -75,6 +75,13 @@ void unload_module_by_name (const char *name);
 void unload_module (sdplugindata *ptr);
 
 /**
+ * Load a module by its name
+ * @param name Name of the module to load
+ * @return TRUE if the module is available
+ */
+unsigned int load_module_by_name (const char *name);
+
+/**
  * Load a module
  * @param path Path of the module to load
  */
