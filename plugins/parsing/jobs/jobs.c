@@ -50,7 +50,7 @@ sd_plugin_init (sdplugindata *plugin)
 {
     plugin->name = "jobs";
     plugin->type = PARSING;
-    plugin->prio = 1;
+    plugin->prio = 2;
 }
 
 void
@@ -61,16 +61,30 @@ sd_plugin_main (void **data)
     command *cmd = *tmpc;
     if (cmd->argc > 0)
     {
-        cmd->argvf = xcalloc (cmd->argc, sizeof (char *));
-        int i,k;
-        for (i = 0, k = 0; i < cmd->argc; i++)
+        unsigned int first = (cmd->argcf == 0);
+        if (first)
         {
-            if (*(cmd->argv[i]) == '%')
+            cmd->argvf = xcalloc (cmd->argc, sizeof (char *));
+            cmd->argcf = cmd->argc;
+        }
+        int i,k;
+        for (i = 0, k = 0; i < (first ? (cmd->argc) : (cmd->argcf)); i++)
+        {
+            if (!first && k > cmd->argcf)
             {
-                int j = strtol (cmd->argv[i]+1, NULL, 10);
+                cmd->argvf = xrealloc (cmd->argvf, cmd->argc * sizeof(char *));
+                cmd->argcf = cmd->argc;
+            }
+            if (first ? (*(cmd->argv[i]) == '%') : (*(cmd->argvf[i]) == '%'))
+            {
+                int j = strtol (first ? (cmd->argv[i]+1) : (cmd->argvf[i]+1),
+                                NULL,
+                                10);
                 job *jb = get_job_by_job_id (j);
                 if (jb != NULL)
                 {
+                    if (!first && cmd->argvf[k] != NULL)
+                        xfree (cmd->argvf[k]);
                     cmd->argvf[k] = xmalloc (64 * sizeof (char));
                     snprintf (cmd->argvf[k], 64, "%d", jb->content->pid);
                     k++;
@@ -80,11 +94,14 @@ sd_plugin_main (void **data)
             }
             else
             {
+                if (!first && cmd->argvf[k] != NULL)
+                    xfree (cmd->argvf[k]);
                 cmd->argvf[k] = xstrdup (cmd->argv[i]);
                 k++;
             }
         }
-        cmd->argcf = k;
+        if (first)
+            cmd->argcf = k;
     }
 
     return;
