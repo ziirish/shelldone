@@ -286,18 +286,20 @@ is_module_present (const char *name)
     return (ret != -1);
 }
 
-void
+int
 launch_each_module (sdplist *list, void **data)
 {
+    int r = 1;
     if (list != NULL)
     {
         sdplugin *tmp = list->head;
-        while (tmp != NULL)
+        while (tmp != NULL && r == 1)
         {
-            tmp->content->main (data);
+            r = tmp->content->main (data);
             tmp = tmp->next;
         }
     }
+    return r;
 }
 
 static int

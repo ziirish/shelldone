@@ -384,8 +384,10 @@ run_command (command_line *ptrc)
     if (modules != NULL)
     {
         void *data[] = {(void *)&ptr};
-        launch_each_module (modules, data);
+        int r = launch_each_module (modules, data);
         free_sdplist (modules);
+        if (r != 1)
+            return -1;
     }
     else
     {

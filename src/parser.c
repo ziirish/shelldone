@@ -836,7 +836,7 @@ parse_line (const char *l)
     size_t cpt = 0;
     size_t size = xstrlen (l);
     int new_word = 0, first = 1, new_command = 0, begin = 1, i = 0, factor = 1,
-        factor2 = 1, arg = 0, squote = 0, dquote = 0;
+        factor2 = 1, arg = 0, squote = 0, dquote = 0, bracket = 0;
     command_line *curr = NULL;
     i = 0;
     /* let's create the line container */
@@ -868,12 +868,28 @@ parse_line (const char *l)
             dquote = !dquote;
             continue;
         }
+        if (l[cpt] == '(')
+            bracket++;
+        if (l[cpt] == ')')
+        {
+            if (bracket > 0)
+                bracket--;
+            else
+            {
+                syntax_error (l, size, cpt);
+                curr->content->argv[curr->content->argc][i] = '\0';
+                curr->content->argc++;
+                free_cmd_line (curr);
+                free_line (ret);
+                return NULL;
+            }
+        }
         /* 
          * a 'space' found outside a quotation means we have done the current
          * command/argument
          */
         if (l[cpt] == ' ' &&
-            !(squote || dquote) &&
+            !(squote || dquote || bracket > 0) &&
             (cpt == 0 || (cpt > 0 && l[cpt-1] != '\\')))
         {
             cpt++;

@@ -55,9 +55,9 @@ struct _sdplugindata
     unsigned int loaded;
     sdplugin_type type;
 
-    void (*init) (sdplugindata *plugin);
+    void (*init)  (sdplugindata *plugin);
     void (*clean) (void);
-    void (*main) (void **data);
+    int  (*main)  (void **data);
 
     void *lib;
 };

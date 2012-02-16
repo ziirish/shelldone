@@ -52,8 +52,9 @@ void clear_modules (void);
 /**
  * Execute each main function of the modules present in the list
  * @param list List of modules
+ * @return status code: 1 on success
  */
-void launch_each_module (sdplist *list, void **data);
+int launch_each_module (sdplist *list, void **data);
 
 /**
  * Give a list of loaded modules by type
