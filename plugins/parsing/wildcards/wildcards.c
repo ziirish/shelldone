@@ -71,7 +71,9 @@ get_subfiles (char *dir, char *pattern, size_t *nb_files)
     {
         if (xstrcmp (files[i]->d_name, ".") != 0 &&
             xstrcmp (files[i]->d_name, "..") != 0 &&
-            fnmatch (pattern, files[i]->d_name, 0) == 0)
+            fnmatch (pattern, files[i]->d_name, 0) == 0 &&
+            (*pattern == '.' ? *(files[i]->d_name) == '.' :
+                               *(files[i]->d_name) != '.'))
         {
             if (first)
             {
@@ -171,7 +173,7 @@ parse_wildcard (char *match, size_t *size)
     return ret;
 }
 
-void
+int
 sd_plugin_main (void **data)
 {
     int i, k;
@@ -180,7 +182,7 @@ sd_plugin_main (void **data)
     command *cmd = *tmpc;
 
     if (cmd->argc == 0)
-        return;
+        return 1;
 
     if (cmd->argcf == 0)
     {
@@ -190,7 +192,10 @@ sd_plugin_main (void **data)
 
     for (i = 0, k = 0; i < cmd->argc; i++)
     {
-        if (cmd->protected[i] == NONE && strpbrk (cmd->argv[i],"*?[]") != NULL)
+        if ((cmd->protected[i] == NONE &&
+            strpbrk (cmd->argv[i],"*?[]$`") != NULL) ||
+            (cmd->protected[i] != SINGLE_QUOTE &&
+            strpbrk (cmd->argv[i],"$`") != NULL))
         {
             size_t size = 0;
             char **tmp_list = parse_wildcard (cmd->argv[i], &size);
@@ -215,6 +220,8 @@ sd_plugin_main (void **data)
             k++;
         }
     }
+
+    return 1;
 }
 
 void
