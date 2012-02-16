@@ -39,8 +39,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <fnmatch.h>
-#include <dirent.h>
+#include <wordexp.h>
 
 #include <sdlib/plugin.h>
 #include <structs.h>
@@ -52,125 +51,6 @@ sd_plugin_init (sdplugindata *plugin)
     plugin->name = "wildcards";
     plugin->type = PARSING;
     plugin->prio = -1;
-}
-
-static char **
-get_subfiles (char *dir, char *pattern, size_t *nb_files)
-{
-    int factor = 1;
-    char **ret = NULL;
-    struct dirent **files = NULL;
-    unsigned int first = TRUE;
-    int nb = scandir (dir, &files, NULL, NULL);
-    int i;
-    *nb_files = 0;
-    if (nb == 0)
-        return NULL;
-
-    for (i = 0; i < nb; i++)
-    {
-        if (xstrcmp (files[i]->d_name, ".") != 0 &&
-            xstrcmp (files[i]->d_name, "..") != 0 &&
-            fnmatch (pattern, files[i]->d_name, 0) == 0 &&
-            (*pattern == '.' ? *(files[i]->d_name) == '.' :
-                               *(files[i]->d_name) != '.'))
-        {
-            if (first)
-            {
-                ret = xcalloc (factor * 50, sizeof (char *));
-                first = FALSE;
-            }
-            if ((int) *nb_files > factor * 50)
-            {
-                factor++;
-                ret = xrealloc (ret, factor * 50 * sizeof (char *));
-            }
-            ret[*nb_files] = xstrdup (files[i]->d_name);
-            (*nb_files)++;
-        }
-        xfree (files[i]);
-    }
-    xfree (files);
-    
-    if (*nb_files == 0)
-    {
-        xfree (ret);
-        ret = NULL;
-    }
-
-    return ret;
-}
-
-static char **
-parse_wildcard (char *match, size_t *size)
-{
-    char **ret = NULL;
-    *size = 0;
-    if (strchr (match, '/') != NULL)
-    {
-        size_t tmp = 0;
-        char **ltmp = xstrsplit (match, "/", &tmp);
-        int i;
-        for (i = 0; i < (int) tmp; i++)
-        {
-            if (strpbrk (ltmp[i], "*?[]") != NULL)
-            {
-                size_t nb = 0;
-                size_t save = *size;
-                size_t cpt;
-                char *tmp_path = i > 0 ? xstrjoin (ltmp, i-1, "/") : ".";
-                int ind = (*match == '/' || i == 0) ? 0 : 1;
-                char **res = get_subfiles (tmp_path+ind, ltmp[i], &nb);
-                if (i > 0)
-                    xfree (tmp_path);
-                if (nb == 0)
-                    continue;
-                if (*size == 0)
-                {
-                    *size = nb;
-                    ret = xcalloc (nb, sizeof (char *));
-                }
-                else
-                {
-                    *size += nb;
-                    ret = xrealloc (ret, *size * sizeof (char *));
-                }
-                for (cpt = 0; cpt < nb; cpt++)
-                {
-                    ret[save+cpt] = res[cpt];
-                }
-                xfree (res);
-            }
-        }
-        xfree_list (ltmp, tmp);
-    }
-    else
-    {
-        size_t nb = 0;
-        char **res = get_subfiles (".", match, &nb);
-        if (nb > 0)
-        {
-            size_t cpt;
-            size_t save = *size;
-            if (*size == 0)
-            {
-                *size = nb;
-                ret = xcalloc (nb, sizeof (char *));
-            }
-            else
-            {
-                *size += nb;
-                ret = xrealloc (ret, *size * sizeof (char *));
-            }
-            for (cpt = 0; cpt < nb; cpt++)
-            {
-                ret[save+cpt] = res[cpt];
-            }
-            xfree (res);
-        }
-    }
-
-    return ret;
 }
 
 int
@@ -197,20 +77,27 @@ sd_plugin_main (void **data)
             (cmd->protected[i] != SINGLE_QUOTE &&
             strpbrk (cmd->argv[i],"$`") != NULL))
         {
-            size_t size = 0;
-            char **tmp_list = parse_wildcard (cmd->argv[i], &size);
-            if (size > 0)
+            wordexp_t p;
+            int j;
+            int r = wordexp (cmd->argv[i], &p, 0);
+            if (p.we_wordc == 0 || r != 0 ||
+                (p.we_wordc == 1 && xstrcmp (p.we_wordv[0],cmd->argv[i]) == 0))
             {
-                int j;
-                cmd->argcf += (int) size - 1;
-                cmd->argvf = xrealloc (cmd->argvf,cmd->argcf * sizeof(char *));
-                for (j = 0; j < (int) size; j++)
-                {
-                    cmd->argvf[k+j] = tmp_list[j];
-                }
-                k += j;
-                xfree (tmp_list);
+                fprintf (stderr, "shelldone: %s: no match found!\n",
+                                 cmd->argv[i]);
+                if (p.we_wordc > 0)
+                    wordfree (&p);
+                return -1;
             }
+            if (p.we_wordc > 1)
+            {
+                cmd->argcf += p.we_wordc - 1;
+                cmd->argvf = xrealloc (cmd->argvf,cmd->argcf * sizeof(char *));
+            }
+            for (j = 0; j < (int) p.we_wordc; j++)
+                cmd->argvf[k+j] = xstrdup (p.we_wordv[j]);
+            k += j;
+            wordfree (&p);
         }
         else
         {
