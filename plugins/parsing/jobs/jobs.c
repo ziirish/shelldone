@@ -53,7 +53,7 @@ sd_plugin_init (sdplugindata *plugin)
     plugin->prio = 2;
 }
 
-void
+int
 sd_plugin_main (void **data)
 {
     void *tmp = data[0];
@@ -90,7 +90,10 @@ sd_plugin_main (void **data)
                     k++;
                 }
                 else
+                {
                     fprintf (stderr, "'%s': no such job\n", cmd->argv[i]);
+                    return -1;
+                }
             }
             else
             {
@@ -104,5 +107,5 @@ sd_plugin_main (void **data)
             cmd->argcf = k;
     }
 
-    return;
+    return 1;
 }

@@ -89,14 +89,14 @@ sd_plugin_init (sdplugindata *plugin)
     plugin->prio = 1;
 }
 
-void
+int
 sd_plugin_main (void **data)
 {
     void *tmp = data[0];
     const char **stmp = (const char **)tmp;
     *stmp = get_prompt ();
 
-    return;
+    return 1;
 }
 
 void

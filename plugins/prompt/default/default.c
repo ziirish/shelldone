@@ -117,7 +117,7 @@ sd_plugin_init (sdplugindata *plugin)
     plugin->prio = 2;
 }
 
-void
+int
 sd_plugin_main (void **data)
 {
     if (!loaded)
@@ -126,7 +126,7 @@ sd_plugin_main (void **data)
     const char **stmp = (const char **)tmp;
     *stmp = get_prompt ();
 
-    return;
+    return 1;
 }
 
 void

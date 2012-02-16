@@ -21,11 +21,13 @@ sd_plugin_init (sdplugindata *ptr)
     ptr->type = PROMPT;
 }
 
-void
+int
 sd_plugin_main (void **data)
 {
     (void) data;
     fprintf (stdout, "$ ");
+
+    return 1;
 }
 
 void
@@ -45,7 +47,7 @@ Execution
 The aboce piece of code would returns the following result.
 First of all, launch shelldone, then load the module.
 $ ./shelldone
-shell> module load path/to/example.so
+shell> module load example
 Module 'example' successfuly loaded.
 $ shell> 
 
