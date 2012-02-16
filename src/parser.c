@@ -1068,7 +1068,7 @@ parse_line (const char *l)
             continue;
         }
         /* end of command */
-        if (!(squote || dquote) &&
+        if (!(squote || dquote || backquote || bracket > 0) &&
             (l[cpt] == '|' || l[cpt] == ';' || l[cpt] == '&'))
         {
             cpt++;
