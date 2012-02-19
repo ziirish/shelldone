@@ -684,7 +684,7 @@ completion (const char *prompt, char *buf, int *ind)
         to_split[i] = buf[j];
         if (j+1 < *ind && !(dquote || squote) && !protected &&
             (buf[j+1] == '|' ||
-            buf[j+1] =='&' ||
+            buf[j+1] == '&' ||
             buf[j+1] == ';'))
         {
             if (j > 0 && isalnum (buf[j-1]) && 
@@ -1271,10 +1271,10 @@ get_char (const char input[5],
         case 127:
             if (*cpt > 0)
             {
-                if ((*ret)[*cpt-1] == '"' && *dquote && !*squote)
-                    *dquote = FALSE;
-                if ((*ret)[*cpt-1] == '\'' && *squote && !*dquote)
-                    *squote = FALSE;
+                if ((*ret)[*cpt-1] == '"' && !*squote)
+                    *dquote = !*dquote;
+                if ((*ret)[*cpt-1] == '\'' && !*dquote)
+                    *squote = !*squote;
                 (*cpt)--;
                 fprintf (stdout, "\b \b");
                 fflush (stdout);
@@ -1381,8 +1381,9 @@ char *
 read_line (const char *prompt)
 {
     char *ret = xmalloc (BUF * sizeof (char));
-    int cpt = 0, ind = 1, nb_lines = 0, antislashes = 0, read_tmp = 0;
-    unsigned int squote = FALSE, dquote = FALSE;
+    int cpt = 0, ind = 1, nb_lines = 0, antislashes = 0, read_tmp = 0,
+        bracket = 0;
+    unsigned int squote = FALSE, dquote = FALSE, backquote = FALSE;
     char in[5], tmp[5], c = -1;
     curr_history = last_history;
     reset_completion ();
@@ -1400,8 +1401,8 @@ read_line (const char *prompt)
         sh_read (shell_terminal, &in, 5);
         c = get_char (in, prompt, &ret, &cpt, &ind, &squote, &dquote);
     } while (c == -1);
-    while ((c != '\n' && c != EOF) ||
-           (c == '\n' && (squote || dquote)) || 
+    while (c != '\n' ||
+           (c == '\n' && (squote || dquote || backquote || bracket > 0)) ||
            nb_lines != antislashes)
     {
         if (c == '\t')
@@ -1435,7 +1436,7 @@ read_line (const char *prompt)
             fprintf (stdout, "%c", c);
             fflush (stdout);
         }
-        else if (c == '\n' && (squote || dquote))
+        else if (c == '\n' && (squote || dquote || backquote || bracket > 0))
         {
             fprintf (stdout, "\n> ");
             fflush (stdout);
@@ -1444,6 +1445,12 @@ read_line (const char *prompt)
             squote = !squote;
         if (c == '"' && !squote)
             dquote = !dquote;
+        if (c == '(' && !squote)
+            bracket++;
+        if (c == ')' && !squote)
+            bracket = xmax (bracket-1,0);
+        if (c == '`' && !squote)
+            backquote = !backquote;
         if (c == '\\')
         {
             char ctmp = -1;
@@ -1463,7 +1470,7 @@ read_line (const char *prompt)
             }
             read_tmp = 1;
         }
-        if (c == '\n' && !(squote || dquote))
+        if (c == '\n' && !(squote || dquote || backquote || bracket > 0))
         {
             do
             {

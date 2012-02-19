@@ -80,24 +80,34 @@ sd_plugin_main (void **data)
             wordexp_t p;
             int j;
             int r = wordexp (cmd->argv[i], &p, 0);
-            if (p.we_wordc == 0 || r != 0 ||
-                (p.we_wordc == 1 && xstrcmp (p.we_wordv[0],cmd->argv[i]) == 0))
+            if (r != 0)
+            {
+                fprintf (stderr, "shelldone: syntax error near '%s'\n",
+                                 cmd->argv[i]);
+                return -1;
+            }
+            if (p.we_wordc == 0 || (p.we_wordc == 1 &&
+                xstrcmp (p.we_wordv[0],cmd->argv[i]) == 0))
             {
                 fprintf (stderr, "shelldone: %s: no match found!\n",
                                  cmd->argv[i]);
-                if (p.we_wordc > 0)
+                if (r == 0 && p.we_wordc > 0)
                     wordfree (&p);
                 return -1;
             }
-            if (p.we_wordc > 1)
+            if (r == 0)
             {
-                cmd->argcf += p.we_wordc - 1;
-                cmd->argvf = xrealloc (cmd->argvf,cmd->argcf * sizeof(char *));
+                if (p.we_wordc > 1)
+                {
+                    cmd->argcf += p.we_wordc - 1;
+                    cmd->argvf = xrealloc (cmd->argvf,cmd->argcf * sizeof(char *));
+                }
+
+                for (j = 0; j < (int) p.we_wordc; j++)
+                    cmd->argvf[k+j] = xstrdup (p.we_wordv[j]);
+                k += j;
+                wordfree (&p);
             }
-            for (j = 0; j < (int) p.we_wordc; j++)
-                cmd->argvf[k+j] = xstrdup (p.we_wordv[j]);
-            k += j;
-            wordfree (&p);
         }
         else
         {

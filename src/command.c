@@ -269,111 +269,6 @@ free_cmd_line (command_line *ptr)
     }
 }
 
-static unsigned int 
-check_wildcard_match (const char *text, const char *pattern)
-{
-    const char *rPat;
-    const char *rText;
-    char ch;
-    unsigned int found;
-    unsigned int seq;
-    size_t len;
-    char first, last, prev, mem;
-
-    (void) last;
-    (void) first;
-    (void) mem;
-    (void) seq;
-    (void) prev;
-
-    rPat = NULL;
-    rText = NULL;
-
-    while (*text || *pattern) 
-    {
-        ch = *pattern++;
-
-        switch (ch) 
-        {
-        case '*':
-            rPat = pattern;
-            rText = text;
-            break;
-
-        case '[':
-            found = FALSE;
-
-            while ((ch = *pattern++) != ']') 
-            {
-                if (ch == '\\')
-                    ch = *pattern++;
-
-                if (ch == '\0')
-                    return FALSE;
-
-                if (*text == ch)
-                    found = TRUE;
-                prev = ch;
-            }
-            len = xstrlen (text);
-            if (found == FALSE && len != 0) 
-            {
-                return FALSE;
-            }
-            if (found == TRUE) 
-            {
-                if (xstrlen (pattern) == 0 && len == 1) 
-                {
-                    return TRUE;
-                }
-                if (len != 0) 
-                {
-                    text++;
-                    continue;
-                }
-            }
-
-            /* fall into next case */
-
-        case '?':
-            if (*text++ == '\0')
-                return FALSE;
-
-            break;
-
-        case '\\':
-            ch = *pattern++;
-
-            if (ch == '\0')
-                return FALSE;
-
-            /* fall into next case */
-
-        default:
-            if (*text == ch) 
-            {
-                if (*text)
-                    text++;
-                break;
-            }
-
-            if (*text) 
-            {
-                pattern = rPat;
-                text = ++rText;
-                break;
-            }
-
-            return FALSE;
-        }
-
-        if (pattern == NULL)
-            return FALSE;
-    }
-
-    return TRUE;
-}
-
 pid_t
 run_command (command_line *ptrc)
 {
@@ -425,14 +320,6 @@ run_command (command_line *ptrc)
         }
         if (call != NULL)
         {
-            /**
-             * FIXME: little hack to avoid compilation warning
-             */
-            for (i = 0; i < ptr->argc; i++)
-                if (check_wildcard_match (ptr->argv[i], "toto"))
-                {
-/*                        argv[i] = xstrdup (ptr->argv[i]); */;
-                }
             r = call (ptr->argcf, ptr->argvf, ptr->in, ptr->out, ptr->err);
             ret_code = r;
             ptr->builtin = TRUE;
