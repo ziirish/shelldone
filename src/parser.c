@@ -663,6 +663,7 @@ completion (const char *prompt, char *buf, int *ind)
     }
     if (*ind < 1 || save == *ind)
         return NULL;
+xdebug ("'%s' buf: '%s' %d", prompt, buf, *ind);
     size_t s_full = *ind + 1;
     char *tmp = xmalloc (s_full * sizeof (char)), *ret = NULL;
     char *to_split = xmalloc (s_full * sizeof (char));
@@ -772,6 +773,7 @@ completion (const char *prompt, char *buf, int *ind)
         size_t len = xstrlen (ret);
         save = ret[len-1] == ' ' || ret[len-1] == '/' ? len-1 : len;
     }
+xdebug ("'%s' buf: '%s' ret: '%s' %d", prompt, buf, ret, *ind);
     return ret;
 }
 
@@ -837,7 +839,7 @@ parse_line (const char *l)
     size_t size = xstrlen (l);
     int new_word = 0, first = 1, new_command = 0, begin = 1, i = 0, factor = 1,
         factor2 = 1, arg = 0, squote = 0, dquote = 0, bracket = 0,
-        backquote = 0;
+        backquote = 0, setting = 0;
     command_line *curr = NULL;
     i = 0;
     /* let's create the line container */
@@ -869,6 +871,8 @@ parse_line (const char *l)
             dquote = !dquote;
             continue;
         }
+        if (l[cpt] == '=' && !(dquote || squote))
+            setting = 1;
         if (l[cpt] == '`')
             backquote = !backquote;
         if (l[cpt] == '(')
@@ -905,6 +909,14 @@ parse_line (const char *l)
                 if (i != 0 && begin)
                 {
                     curr->content->cmd[i] = '\0';
+                    if (dquote)
+                        curr->content->protect = DOUBLE_QUOTE;
+                    else if (squote)
+                        curr->content->protect = SINGLE_QUOTE;
+                    else 
+                        curr->content->protect = NONE;
+                    if (setting != 0)
+                        curr->content->protect |= SETTING;
                 }
                 else if (i != 0)
                 {
@@ -917,6 +929,7 @@ parse_line (const char *l)
                 arg = 0;
                 i = 0;
                 begin = 0;
+                setting = 0;
             }
             continue;
         }
@@ -1111,6 +1124,7 @@ parse_line (const char *l)
             begin = 1;
             factor = 1;
             factor2 = 1;
+            setting = 0;
             arg = 0;
             first = 1;
             i = 0;
@@ -1211,6 +1225,8 @@ parse_line (const char *l)
                 curr->content->protected[curr->content->argc] = SINGLE_QUOTE;
             else
                 curr->content->protected[curr->content->argc] = NONE;
+            if (setting != 0)
+                curr->content->protected[curr->content->argc] |= SETTING;
         }
         i++;
         cpt++;
@@ -1218,10 +1234,26 @@ parse_line (const char *l)
     if (i != 0 && begin)
     {   
         curr->content->cmd[i] = '\0';
+        if (dquote)
+            curr->content->protect = DOUBLE_QUOTE;
+        else if (squote)
+            curr->content->protect = SINGLE_QUOTE;
+        else 
+            curr->content->protect = NONE;
+        if (setting != 0)
+            curr->content->protect |= SETTING;
     }   
     else if (i != 0)
     {   
         curr->content->argv[curr->content->argc][i] = '\0';
+        if (dquote)
+            curr->content->protected[curr->content->argc] = DOUBLE_QUOTE;
+        else if (squote)
+            curr->content->protected[curr->content->argc] = SINGLE_QUOTE;
+        else 
+            curr->content->protected[curr->content->argc] = NONE;
+        if (setting != 0)
+            curr->content->protected[curr->content->argc] |= SETTING;
         curr->content->argc++;
         if (curr->content->argc >= factor * ARGC)
         {
@@ -1407,9 +1439,11 @@ read_line (const char *prompt)
     {
         if (c == '\t')
         {
+xdebug ("ret: '%s' (%d)", ret, cpt);
             char *comp = completion (prompt, ret, &cpt);
             if (comp != NULL)
             {
+xdebug ("ret: '%s' (%d) -> comp: '%s'", ret, cpt, comp);
                 size_t s_comp = xstrlen (comp);
                 int iz;
                 for (iz = cpt; iz < (int) s_comp; iz++, cpt++)

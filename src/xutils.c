@@ -34,6 +34,9 @@
 #ifndef _BSD_SOURCE
     #define _BSD_SOURCE
 #endif
+#ifndef _XOPEN_SOURCE
+    #define _XOPEN_SOURCE
+#endif
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -43,6 +46,37 @@
 #include <stdarg.h>
 
 #include "xutils.h"
+#include "list.h"
+
+static sdlist *env;
+
+void
+init_env (void)
+{
+    xdebug (NULL);
+    env = xmalloc (sizeof (*env));
+    if (env != NULL)
+    {
+        env->head = NULL;
+        env->tail = NULL;
+        env->size = 0;
+    }
+}
+
+void
+clear_env (void)
+{
+    xdebug (NULL);
+    sddata *tmp = env->head;
+    while (tmp != NULL)
+    {
+        sddata *tmp2 = tmp->next;
+        xfree (tmp->content);
+        xfree (tmp);
+        tmp = tmp2;
+    }
+    xfree (env);
+}
 
 int
 xmin (int a, int b)
@@ -379,7 +413,7 @@ xadebug (const char *file, const char *func, int line, const char *format, ...)
 {
 #ifdef DEBUG
     va_list args;
-    fprintf (stdout, "[D] %s:%d    %s()", file, line, func);
+    fprintf (stdout, "\n[D] %s:%d    %s()", file, line, func);
     if (format != NULL)
     {
         va_start (args, format);
@@ -396,4 +430,13 @@ xadebug (const char *file, const char *func, int line, const char *format, ...)
 #endif
 
     return;
+}
+
+int
+xputenv (const char *set)
+{
+    sddata *tmp = xmalloc (sizeof (*tmp));
+    tmp->content = xstrdup (set);
+    list_append (&env, tmp);
+    return putenv (tmp->content);
 }

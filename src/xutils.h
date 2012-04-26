@@ -41,6 +41,12 @@
 #define BUF     256
 #define HISTORY 100
 
+/* Initialize our env context so we can clear it at the end */
+void init_env (void);
+
+/* Clear our env context */
+void clear_env (void);
+
 /**
  * Returns the smallest value of the given parameters
  * @param a Value to compare
@@ -177,5 +183,12 @@ void xadebug (const char *file,
  * @return a table of strings
  */
 char **xstrsplitspace (const char *src, size_t *size);
+
+/**
+ * Handler to set environment variables
+ * @param set String like var=123
+ * @return 0 on success
+ */
+int xputenv (const char *set);
 
 #endif

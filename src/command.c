@@ -102,6 +102,7 @@ new_command (void)
     if (ret != NULL)
     {
         ret->cmd = NULL;
+        ret->protect = NONE;
         ret->argv = NULL;
         ret->protected = NULL;
         ret->argvf = NULL;
@@ -142,6 +143,7 @@ copy_command (const command *src)
     if (ret == NULL)
         return NULL;
     ret->cmd = xstrdup (src->cmd);
+    ret->protect = src->protect;
     ret->flag = src->flag;
     ret->in = src->in;
     ret->out = src->out;
@@ -289,6 +291,8 @@ run_command (command_line *ptrc)
         ptr->argvf = ptr->argv;
         ptr->argcf = ptr->argc;
     }
+    if (ptr->cmd == NULL)
+        return -1;
     curr = ptr;
     pid_t r = -1;
     if (ptr != NULL)
@@ -490,7 +494,9 @@ run_line (input_line *ptr)
                 i = 1;
                 exec = exec->next;
                 while (i < nb && ((flag == AND) ? 
-                                        (ret_code == 0) : 
+                                        (ret_code == 0|| 
+                                        (exec->prev->content->protect&SETTING)
+                                        != 0) : 
                                         (ret_code != 0)))
                 {
                     p = run_command (exec);

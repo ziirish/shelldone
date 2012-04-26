@@ -65,14 +65,17 @@ typedef enum {
 
 /* Different types of arguments protection (ie. double quote, single quote... */
 typedef enum {
-    NONE = 0,
-    DOUBLE_QUOTE,
-    SINGLE_QUOTE
+    NONE         = 0x00,
+    DOUBLE_QUOTE = 0x01,
+    SINGLE_QUOTE = 0x02,
+    SETTING      = 0x04
 } Protection;
 
 struct _command {
     /* command */
     char *cmd;
+    /* Protection */
+    Protection protect;
     /* arguments */
     char **argv;
     /* argument protection */

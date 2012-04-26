@@ -214,13 +214,12 @@ is_job_done (pid_t pid, unsigned int print, unsigned int details)
                              j->content->cmd);
             for (i = 0; i < j->content->argc; i++)
             {
-                char q;
-                switch (j->content->protected[i])
-                {
-                    case NONE: q = '\0'; break;
-                    case DOUBLE_QUOTE: q = '"'; break;
-                    case SINGLE_QUOTE: q = '\'';
-                }
+                char q = '\0';
+                if ((j->content->protected[i] & DOUBLE_QUOTE) == 0)
+                    q = '"';
+                else if ((j->content->protected[i] & SINGLE_QUOTE) ==0)
+                    q = '\'';
+
                 fprintf (stdout, " %c%s%c", q, j->content->argv[i], q);
             }
             fprintf (stdout, "\n");
@@ -321,13 +320,12 @@ list_jobs (unsigned int print, int *pids, int cpt, unsigned int details)
                                      tmp->content->cmd);
                     for (i = 0; i < tmp->content->argc; i++)
                     {
-                        char q;
-                        switch (tmp->content->protected[i])
-                        {
-                            case NONE: q = '\0'; break;
-                            case DOUBLE_QUOTE: q = '"'; break;
-                            case SINGLE_QUOTE: q = '\'';
-                        }
+                        char q = '\0';
+                        if ((tmp->content->protected[i] & DOUBLE_QUOTE) == 0)
+                            q = '"';
+                        else if ((tmp->content->protected[i] & SINGLE_QUOTE) == 0)
+                            q = '\'';
+
                         fprintf (stdout, " %c%s%c",
                                          q,
                                          tmp->content->argv[i],
@@ -366,13 +364,12 @@ list_jobs (unsigned int print, int *pids, int cpt, unsigned int details)
                                      tmp->content->cmd);
                     for (j = 0; j < tmp->content->argc; j++)
                     {
-                        char q;
-                        switch (tmp->content->protected[j])
-                        {
-                            case NONE: q = '\0'; break;
-                            case DOUBLE_QUOTE: q = '"'; break;
-                            case SINGLE_QUOTE: q = '\'';
-                        }
+                        char q = '\0';
+                        if ((tmp->content->protected[j] & DOUBLE_QUOTE) == 0)
+                            q = '"';
+                        else if ((tmp->content->protected[j] & SINGLE_QUOTE) == 0)
+                            q = '\'';
+
                         fprintf (stdout, " %c%s%c",
                                          q,
                                          tmp->content->argv[j],

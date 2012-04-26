@@ -86,6 +86,8 @@ shelldone_init (void)
     init_jobs ();
     /* initialize modules list */
     init_modules ();
+    /* initialize env */
+    init_env ();
     /* ignoring SIGTSTP + handling SIGINT */
     struct sigaction sa;
     sa.sa_handler = siginthandler;
@@ -129,6 +131,7 @@ shelldone_clean (void)
     clear_history ();
     clear_jobs ();
     clear_modules ();
+    clear_env ();
 }
 
 /**
