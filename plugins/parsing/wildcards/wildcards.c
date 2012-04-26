@@ -34,6 +34,9 @@
 #ifndef _BSD_SOURCE
     #define _BSD_SOURCE
 #endif
+#ifndef _XOPEN_SOURCE
+    #define _XOPEN_SOURCE
+#endif
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -42,6 +45,7 @@
 #include <wordexp.h>
 
 #include <sdlib/plugin.h>
+#include <command.h>
 #include <structs.h>
 #include <xutils.h>
 
@@ -60,37 +64,50 @@ sd_plugin_main (void **data)
     void *tmp = data[0];
     command **tmpc = (command **)tmp;
     command *cmd = *tmpc;
-
+/*
+    if ((cmd->protect & SETTING) != 0)
+    {
+        xputenv (cmd->cmd);
+    }
+*/
     if (cmd->argc == 0)
+    {
+        /*
+        if ((cmd->protect & SETTING) != 0)
+            return 0;
+        */
         return 1;
+    }
 
-    if (cmd->argcf == 0)
+    unsigned int first = (cmd->argcf == 0);
+    if (first)
     {
         cmd->argvf = xcalloc (cmd->argc, sizeof (char *));
         cmd->argcf = cmd->argc;
     }
 
-    for (i = 0, k = 0; i < cmd->argc; i++)
+    for (i = 0, k = 0; i < (first ? (cmd->argc) : (cmd->argcf)); i++)
     {
-        if ((cmd->protected[i] == NONE &&
-            strpbrk (cmd->argv[i],"*?[]$`") != NULL) ||
-            (cmd->protected[i] != SINGLE_QUOTE &&
-            strpbrk (cmd->argv[i],"$`") != NULL))
+        char *tmp = (first ? cmd->argv[i] : cmd->argvf[i]);
+        if (((cmd->protected[i] & NONE) != 0 &&
+            strpbrk (tmp,"*?[]$`") != NULL) ||
+            ((cmd->protected[i] & SINGLE_QUOTE) == 0 &&
+            strpbrk (tmp,"$`") != NULL))
         {
             wordexp_t p;
             int j;
-            int r = wordexp (cmd->argv[i], &p, 0);
+            int r = wordexp (tmp, &p, 0);
             if (r != 0)
             {
                 fprintf (stderr, "shelldone: syntax error near '%s'\n",
-                                 cmd->argv[i]);
+                                 tmp);
                 return -1;
             }
             if (p.we_wordc == 0 || (p.we_wordc == 1 &&
-                xstrcmp (p.we_wordv[0],cmd->argv[i]) == 0))
+                xstrcmp (p.we_wordv[0],tmp) == 0))
             {
                 fprintf (stderr, "shelldone: %s: no match found!\n",
-                                 cmd->argv[i]);
+                                 tmp);
                 if (r == 0 && p.we_wordc > 0)
                     wordfree (&p);
                 return -1;
@@ -104,13 +121,27 @@ sd_plugin_main (void **data)
                 }
 
                 for (j = 0; j < (int) p.we_wordc; j++)
-                    cmd->argvf[k+j] = xstrdup (p.we_wordv[j]);
+                {
+                    char *t = xstrdup (p.we_wordv[j]);
+                    if (cmd->argvf[k+j] != NULL)
+                        xfree (cmd->argvf[k+j]);
+                    cmd->argvf[k+j] = t;
+                }
                 k += j;
                 wordfree (&p);
             }
         }
         else
         {
+            /*
+            if ((cmd->protected[i] & SETTING) != 0)
+            {
+                xputenv (cmd->argv[i]);
+                (cmd->argcf)--;
+                continue;
+            }
+            */
+
             if (cmd->argvf[k] != NULL)
                 xfree (cmd->argvf[k]);
             cmd->argvf[k] = xstrdup (cmd->argv[i]);
