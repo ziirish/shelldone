@@ -97,9 +97,11 @@ sd_plugin_main (void **data)
             }
             else
             {
-                if (!first && cmd->argvf[k] != NULL)
+                if (first && cmd->argvf[k] != NULL)
+                {
                     xfree (cmd->argvf[k]);
-                cmd->argvf[k] = xstrdup (cmd->argv[i]);
+                    cmd->argvf[k] = xstrdup (cmd->argv[i]);
+                }
                 k++;
             }
         }
