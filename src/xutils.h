@@ -34,18 +34,14 @@
 #ifndef _XUTILS_H_
 #define _XUTILS_H_
 
+#include "structs.h"
+
 /* define a few useful MACRO */
 #define TRUE      1
 #define FALSE     0
 #define ARGC     50
 #define BUF     256
 #define HISTORY 100
-
-/* Initialize our env context so we can clear it at the end */
-void init_env (void);
-
-/* Clear our env context */
-void clear_env (void);
 
 /**
  * Returns the smallest value of the given parameters
@@ -184,11 +180,16 @@ void xadebug (const char *file,
  */
 char **xstrsplitspace (const char *src, size_t *size);
 
+#define sd_error(msg,...) sd_print(ERROR,msg,__VA_ARGS__)
+#define sd_debug(msg,...) sd_print(DEBUG,msg,__VA_ARGS__)
+#define sd_info(msg,...) sd_print(INFO,msg,__VA_ARGS__)
+
 /**
- * Handler to set environment variables
- * @param set String like var=123
- * @return 0 on success
+ * Prints messages if verbosity level is high enough
+ * @param level What kind of message it is
+ * @param msg The message to display
+ * @param ... optional arguments to pass to the msg string
  */
-int xputenv (const char *set);
+void sd_print (log level, const char *msg, ...);
 
 #endif

@@ -46,37 +46,8 @@
 #include <stdarg.h>
 
 #include "xutils.h"
-#include "list.h"
 
-static sdlist *env;
-
-void
-init_env (void)
-{
-    xdebug (NULL);
-    env = xmalloc (sizeof (*env));
-    if (env != NULL)
-    {
-        env->head = NULL;
-        env->tail = NULL;
-        env->size = 0;
-    }
-}
-
-void
-clear_env (void)
-{
-    xdebug (NULL);
-    sddata *tmp = env->head;
-    while (tmp != NULL)
-    {
-        sddata *tmp2 = tmp->next;
-        xfree (tmp->content);
-        xfree (tmp);
-        tmp = tmp2;
-    }
-    xfree (env);
-}
+extern log loglevel;
 
 int
 xmin (int a, int b)
@@ -432,11 +403,26 @@ xadebug (const char *file, const char *func, int line, const char *format, ...)
     return;
 }
 
-int
-xputenv (const char *set)
+/**
+ * Prints messages if verbosity level is high enough
+ * @param level What kind of message it is
+ * @param msg The message to display
+ * @param ... optional arguments to pass to the msg string
+ */
+void
+sd_print (log level, const char *msg, ...)
 {
-    sddata *tmp = xmalloc (sizeof (*tmp));
-    tmp->content = xstrdup (set);
-    list_append (&env, tmp);
-    return putenv (tmp->content);
+    va_list args;
+    FILE *out;
+    if (loglevel < level)
+        return;
+    out = (level == ERROR) ? stderr : stdout;
+    if (msg != NULL)
+    {
+        va_start (args, msg);
+        vfprintf (out, msg, args);
+        va_end (args);
+    }
+    else
+        fprintf (out, msg);
 }

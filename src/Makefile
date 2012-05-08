@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-std=c99 -pedantic -Wall -Werror -W -rdynamic #-DDEBUG
+CFLAGS=-std=c99 -pedantic -Wall -Werror -W -rdynamic #-g #-DDEBUG
 LDFLAGS=-ldl
 SOURCES=$(wildcard *.c)
 OBJECTS=$(SOURCES:.c=.o)

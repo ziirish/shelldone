@@ -63,12 +63,19 @@ typedef enum {
     END
 } CmdFlag;
 
+/* Verbosity levels */
+typedef enum {
+    ERROR,
+    DEBUG,
+    INFO
+} log;
+
 /* Different types of arguments protection (ie. double quote, single quote... */
 typedef enum {
-    NONE         = 0x00,
-    DOUBLE_QUOTE = 0x01,
-    SINGLE_QUOTE = 0x02,
-    SETTING      = 0x04
+    NONE         = 0x01,
+    DOUBLE_QUOTE = 0x02,
+    SINGLE_QUOTE = 0x04,
+    SETTING      = 0x08
 } Protection;
 
 struct _command {

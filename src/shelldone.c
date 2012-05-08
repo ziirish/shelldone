@@ -50,6 +50,7 @@
 #include "command.h"
 #include "jobs.h"
 #include "modules.h"
+#include "structs.h"
 
 pid_t shell_pgid;
 int shell_terminal;
@@ -60,6 +61,7 @@ unsigned int interrupted = FALSE;
 unsigned int running = FALSE;
 sigjmp_buf env;
 int val;
+log loglevel = 0;
 char *plugindir;
 
 static void shelldone_init (void);
@@ -86,8 +88,6 @@ shelldone_init (void)
     init_jobs ();
     /* initialize modules list */
     init_modules ();
-    /* initialize env */
-    init_env ();
     /* ignoring SIGTSTP + handling SIGINT */
     struct sigaction sa;
     sa.sa_handler = siginthandler;
@@ -131,7 +131,6 @@ shelldone_clean (void)
     clear_history ();
     clear_jobs ();
     clear_modules ();
-    clear_env ();
 }
 
 /**
@@ -205,7 +204,7 @@ shelldone_read_args (int argc, char **argv)
                 {0,         0,                 0,  0 }
                 };
 
-        c = getopt_long(argc, argv, "d:l:h",
+        c = getopt_long(argc, argv, "d:l:hv?",
                         long_options, &option_index);
 
         if (c == -1)
@@ -232,6 +231,10 @@ shelldone_read_args (int argc, char **argv)
             break;
         }
 
+        case 'v':
+            loglevel++;
+            break;
+
         case '?':
         case 'h':
             fprintf (stdout, "\
@@ -240,6 +243,7 @@ to improve my programming skills and have some fun.\n\
 usage:\n\
     shelldone [-d|--dir=<where are the plugins>]\n\
               [-l|--load=plugin1[,plugin2[...]]]\n\
+              [-v|-vv...]\n\
               [-h|-?|--help]\n\
 \n\
 ");
@@ -247,7 +251,7 @@ usage:\n\
             break;
 
         default:
-            printf("?? getopt returned character code 0%o ??\n", c);
+            fprintf (stdout, "?? getopt returned character code 0%o ??\n", c);
         }
     }
 

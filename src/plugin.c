@@ -376,6 +376,7 @@ unload_module (sdplugindata *ptr)
 {
     if (ptr != NULL && ptr->loaded)
     {
+        sd_info ("Unloading '%s' module\n", ptr->name);
         if (ptr->clean != NULL)
             ptr->clean ();
         if (ptr->lib != NULL)
@@ -481,5 +482,5 @@ load_module (const char *path)
     }
 
     list_append ((sdlist **)&modules_list, (sddata *)pl);
-    fprintf (stdout, "Module '%s' successfuly loaded.\n", ptr->name);
+    sd_info ("Module '%s' successfuly loaded\n", ptr->name);
 }
