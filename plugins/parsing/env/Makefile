@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-std=c89 -Wall -Werror -W
+CFLAGS=-std=c89 -Wall -Werror -W #-g
 LDFLAGS=
 INCLUDES=-I../../../src
 MOD_CFLAGS=-fPIC

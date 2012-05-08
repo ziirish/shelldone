@@ -42,6 +42,47 @@
 #include <sdlib/plugin.h>
 #include <xutils.h>
 #include <structs.h>
+#include "list.h"
+
+static sdlist *env;
+
+static void
+init_env (void)
+{
+    xdebug (NULL);
+    env = xmalloc (sizeof (*env));
+    if (env != NULL)
+    {
+        env->head = NULL;
+        env->tail = NULL;
+        env->size = 0;
+    }
+}
+
+static void
+clear_env (void)
+{
+    xdebug (NULL);
+    sddata *tmp = env->head;
+    while (tmp != NULL)
+    {
+        sddata *tmp2 = tmp->next;
+        xfree (tmp->content);
+        xfree (tmp);
+        tmp = tmp2;
+    }
+    xfree (env);
+}
+
+static int
+sd_putenv (const char *set)
+{
+    sddata *tmp = xmalloc (sizeof (*tmp));
+    tmp->content = xstrdup (set);
+    list_append (&env, tmp);
+    return putenv (tmp->content);
+}
+
 
 void
 sd_plugin_init (sdplugindata *plugin)
@@ -49,6 +90,7 @@ sd_plugin_init (sdplugindata *plugin)
     plugin->name = "env";
     plugin->type = PARSING;
     plugin->prio = -2;
+    init_env ();
 }
 
 int
@@ -57,21 +99,23 @@ sd_plugin_main (void **data)
     void *tmp = data[0];
     command **tmpc = (command **)tmp;
     command *cmd = *tmpc;
-    if (cmd->cmd != NULL && cmd->protect != NONE &&
-        (cmd->protect & SETTING) != 0)
+    if (cmd->cmd != NULL &&
+        (cmd->protect & SETTING) != 0 && cmd->argc < 1)
     {
-        fprintf (stdout, "setting: '%s'\n", cmd->cmd);
-        xputenv (cmd->cmd);
+        sd_debug ("setting: '%s'\n", cmd->cmd);
+        sd_putenv (cmd->cmd);
         xfree (cmd->cmd);
         cmd->cmd = NULL;
     }
     if (cmd->argc > 0)
     {
-        if ((cmd->protect & SETTING) != 0)
+        while ((cmd->protect & SETTING) != 0 && cmd->argc > 0)
         {
             int i;
             char **argv = xcalloc (cmd->argc-1, sizeof (char *));
             Protection *prot = xcalloc (cmd->argc-1, sizeof (Protection));
+            sd_debug ("setting: '%s'\n", cmd->cmd);
+            sd_putenv (cmd->cmd);
             xfree (cmd->cmd);
             cmd->cmd = cmd->argv[0];
             cmd->protect = cmd->protected[0];
@@ -85,6 +129,13 @@ sd_plugin_main (void **data)
             cmd->argv = argv;
             cmd->protected = prot;
             (cmd->argc)--;
+        }
+        if ((cmd->protect & SETTING) != 0 && cmd->argc == 0)
+        {
+            sd_debug ("setting: '%s'\n", cmd->cmd);
+            sd_putenv (cmd->cmd);
+            xfree (cmd->cmd);
+            cmd->cmd = NULL;
         }
         unsigned int first = (cmd->argcf == 0);
         if (first)
@@ -102,8 +153,8 @@ sd_plugin_main (void **data)
             }
             if ((cmd->protected[i] & SETTING) != 0)
             {
-                fprintf (stdout, "setting: '%s'\n", cmd->argv[i]);
-                xputenv (cmd->argv[i]);
+                sd_debug ("setting: '%s'\n", cmd->argv[i]);
+                sd_putenv (cmd->argv[i]);
             }
             else
             {
@@ -120,5 +171,6 @@ sd_plugin_main (void **data)
 void
 sd_plugin_clean (void)
 {
+    clear_env ();
     return;
 }
