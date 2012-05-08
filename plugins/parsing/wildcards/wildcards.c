@@ -90,9 +90,7 @@ sd_plugin_main (void **data)
     {
         char *tmp = (first ? cmd->argv[i] : cmd->argvf[i]);
         if (((cmd->protected[i] & NONE) != 0 &&
-            strpbrk (tmp,"*?[]$`") != NULL) ||
-            ((cmd->protected[i] & SINGLE_QUOTE) == 0 &&
-            strpbrk (tmp,"$`") != NULL))
+            strpbrk (tmp,"*?[]$`") != NULL))
         {
             wordexp_t p;
             int j;
@@ -106,7 +104,7 @@ sd_plugin_main (void **data)
             if (p.we_wordc == 0 || (p.we_wordc == 1 &&
                 xstrcmp (p.we_wordv[0],tmp) == 0))
             {
-                fprintf (stderr, "shelldone: %s: no match found!\n",
+                fprintf (stderr, "shelldone: '%s': no match found!\n",
                                  tmp);
                 if (r == 0 && p.we_wordc > 0)
                     wordfree (&p);
@@ -129,6 +127,67 @@ sd_plugin_main (void **data)
                 }
                 k += j;
                 wordfree (&p);
+            }
+        }
+        else if ((cmd->protected[i] & SINGLE_QUOTE) == 0 &&
+                 strpbrk (tmp,"$`") != NULL)
+        {
+            size_t s1, s2;
+            /*char **ttmp = xstrsplitspace (tmp, &s1);*/
+            char **ttmp = xstrsplit (tmp, " ", &s1);
+            int j,z;
+            if (s1 > 0)
+            {
+                char **ret = xcalloc (s1, sizeof (char *));
+                s2 = s1;
+                for (z = 0; z < (int) s1; z++)
+                    ret[z] = NULL;
+                for (z = 0; z < (int) s1; z++)
+                {
+                    wordexp_t p;
+                    int r = wordexp (ttmp[z], &p, 0);
+                    if (r != 0)
+                    {
+                        fprintf (stderr, "shelldone: syntax error near '%s'\n",
+                                         ttmp[z]);
+                        return -1;
+                    }
+                    if (p.we_wordc == 0 || (p.we_wordc == 1 &&
+                        xstrcmp (p.we_wordv[0],ttmp[z]) == 0))
+                    {
+                        if (r == 0 && p.we_wordc > 0)
+                            wordfree (&p);
+                        if (ret[k] != NULL)
+                            xfree (ret[k]);
+                        ret[k] = xstrdup (ttmp[z]);
+                        k++;
+                        continue;
+                    }
+                    if (r == 0)
+                    {
+                        if (p.we_wordc > 1)
+                        {
+                            s2 += p.we_wordc - 1;
+                            ret = xrealloc (ret, s2 * sizeof(char *));
+                        }
+
+                        for (j = 0; j < (int) p.we_wordc; j++)
+                        {
+                            char *t = xstrdup (p.we_wordv[j]);
+                            if (ret[z+j] != NULL)
+                                xfree (ret[z+j]);
+                            ret[z+j] = t;
+                        }
+                        z += j;
+                        wordfree (&p);
+                    }
+                }
+                if (cmd->argvf[k] != NULL)
+                    xfree (cmd->argvf[k]);
+                cmd->argvf[k] = xstrjoin (ret, s2, " ");
+                k++;
+                xfree_list (ret, s2);
+                xfree_list (ttmp, s1);
             }
         }
         else
