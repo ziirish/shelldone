@@ -106,7 +106,8 @@ sd_plugin_main (void **data)
             {
                 fprintf (stderr, "shelldone: '%s': no match found!\n",
                                  tmp);
-                if (r == 0 && p.we_wordc > 0)
+                if (r == 0/* && p.we_wordc > 0*/)
+                    /* why did I do that p.we_wordc check? */
                     wordfree (&p);
                 return -1;
             }

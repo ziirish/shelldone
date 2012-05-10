@@ -180,9 +180,9 @@ void xadebug (const char *file,
  */
 char **xstrsplitspace (const char *src, size_t *size);
 
-#define sd_error(msg,...) sd_print(ERROR,msg,__VA_ARGS__)
-#define sd_debug(msg,...) sd_print(DEBUG,msg,__VA_ARGS__)
-#define sd_info(msg,...) sd_print(INFO,msg,__VA_ARGS__)
+#define sd_error(msg,...) sd_print(LERROR,msg,__VA_ARGS__)
+#define sd_debug(msg,...) sd_print(LDEBUG,msg,__VA_ARGS__)
+#define sd_info(msg,...) sd_print(LINFO,msg,__VA_ARGS__)
 
 /**
  * Prints messages if verbosity level is high enough

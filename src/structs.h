@@ -65,9 +65,9 @@ typedef enum {
 
 /* Verbosity levels */
 typedef enum {
-    ERROR,
-    DEBUG,
-    INFO
+    LERROR,
+    LDEBUG,
+    LINFO
 } log;
 
 /* Different types of arguments protection (ie. double quote, single quote... */

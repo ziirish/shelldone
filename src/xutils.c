@@ -416,7 +416,7 @@ sd_print (log level, const char *msg, ...)
     FILE *out;
     if (loglevel < level)
         return;
-    out = (level == ERROR) ? stderr : stdout;
+    out = (level == LERROR) ? stderr : stdout;
     if (msg != NULL)
     {
         va_start (args, msg);
