@@ -839,7 +839,7 @@ parse_line (const char *l)
     size_t size = xstrlen (l);
     int new_word = 0, first = 1, new_command = 0, begin = 1, i = 0, factor = 1,
         factor2 = 1, arg = 0, squote = 0, dquote = 0, bracket = 0,
-        backquote = 0, setting = 0;
+        backquote = 0, setting = 0, backslash = 0, lastslash = 0;
     command_line *curr = NULL;
     i = 0;
     /* let's create the line container */
@@ -858,26 +858,41 @@ parse_line (const char *l)
     /* the parsing begin here */
     while (cpt < size)
     {
+        if (lastslash)
+        {
+            lastslash = 0;
+            backslash = 1;
+        }
+        if (l[cpt] == '\\' && !backslash)
+        {
+            backslash = 1;
+            lastslash = 1;
+            if (!is_module_present ("wildcards"))
+            {
+                cpt++;
+                continue;
+            }
+        }
         /* handle the quotes to protect some characters */
-        if (l[cpt] == '\'' && !dquote)
+        if (l[cpt] == '\'' && !(dquote || backslash))
         {
             cpt++;
             squote = !squote;
             continue;
         }
-        if (l[cpt] == '"' && !squote)
+        if (l[cpt] == '"' && !(squote || backslash))
         {
             cpt++;
             dquote = !dquote;
             continue;
         }
-        if (l[cpt] == '=' && !(dquote || squote))
+        if (l[cpt] == '=' && !(dquote || squote || backslash))
             setting = 1;
-        if (l[cpt] == '`')
+        if (l[cpt] == '`' && !backslash)
             backquote = !backquote;
-        if (l[cpt] == '(')
+        if (l[cpt] == '(' && !backslash)
             bracket++;
-        if (l[cpt] == ')')
+        if (l[cpt] == ')' && !backslash)
         {
             if (bracket > 0)
                 bracket--;
@@ -896,8 +911,8 @@ parse_line (const char *l)
          * command/argument
          */
         if (l[cpt] == ' ' &&
-            !(squote || dquote || bracket > 0 || backquote) &&
-            (cpt == 0 || (cpt > 0 && l[cpt-1] != '\\')))
+            !(squote || dquote || bracket > 0 || backquote || backslash)/* &&
+            (cpt == 0 || (cpt > 0 && l[cpt-1] != '\\'))*/)
         {
             cpt++;
             /* 
@@ -1230,6 +1245,7 @@ parse_line (const char *l)
         }
         i++;
         cpt++;
+        backslash = 0;
     }
     if (i != 0 && begin)
     {   
