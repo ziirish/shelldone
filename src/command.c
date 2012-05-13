@@ -74,6 +74,7 @@ extern int shell_terminal;
 extern unsigned int interrupted;
 extern sigjmp_buf env;
 extern int val;
+extern log loglevel;
 
 command *curr = NULL;
 int ret_code;
@@ -416,6 +417,12 @@ run_command (command_line *ptrc)
                 else
                     argv = (char *[]){ptr->cmd, NULL};
                 execvp (ptr->cmd, argv);
+
+                /* reset the loglevel so we are not spammed if the process
+                   fails */
+                loglevel = LERROR;
+
+
                 if (ptr->argcf > 0)
                     xfree (argv);
                 err (1, "%s", ptr->cmd);

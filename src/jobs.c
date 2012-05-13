@@ -215,9 +215,9 @@ is_job_done (pid_t pid, unsigned int print, unsigned int details)
             for (i = 0; i < j->content->argc; i++)
             {
                 char q = '\0';
-                if ((j->content->protected[i] & DOUBLE_QUOTE) == 0)
+                if (j->content->protected[i] & DOUBLE_QUOTE)
                     q = '"';
-                else if ((j->content->protected[i] & SINGLE_QUOTE) ==0)
+                else if (j->content->protected[i] & SINGLE_QUOTE)
                     q = '\'';
 
                 fprintf (stdout, " %c%s%c", q, j->content->argv[i], q);
@@ -321,9 +321,9 @@ list_jobs (unsigned int print, int *pids, int cpt, unsigned int details)
                     for (i = 0; i < tmp->content->argc; i++)
                     {
                         char q = '\0';
-                        if ((tmp->content->protected[i] & DOUBLE_QUOTE) == 0)
+                        if (tmp->content->protected[i] & DOUBLE_QUOTE)
                             q = '"';
-                        else if ((tmp->content->protected[i] & SINGLE_QUOTE) == 0)
+                        else if (tmp->content->protected[i] & SINGLE_QUOTE)
                             q = '\'';
 
                         fprintf (stdout, " %c%s%c",
@@ -365,9 +365,9 @@ list_jobs (unsigned int print, int *pids, int cpt, unsigned int details)
                     for (j = 0; j < tmp->content->argc; j++)
                     {
                         char q = '\0';
-                        if ((tmp->content->protected[j] & DOUBLE_QUOTE) == 0)
+                        if (tmp->content->protected[j] & DOUBLE_QUOTE)
                             q = '"';
-                        else if ((tmp->content->protected[j] & SINGLE_QUOTE) == 0)
+                        else if (tmp->content->protected[j] & SINGLE_QUOTE)
                             q = '\'';
 
                         fprintf (stdout, " %c%s%c",
