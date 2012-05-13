@@ -60,37 +60,37 @@ sd_plugin_init (sdplugindata *plugin)
 int
 sd_plugin_main (void **data)
 {
-    int i, k;
+    int i, k, argc;
+    char **argv = NULL;
     void *tmp = data[0];
     command **tmpc = (command **)tmp;
     command *cmd = *tmpc;
-/*
-    if ((cmd->protect & SETTING) != 0)
-    {
-        xputenv (cmd->cmd);
-    }
-*/
-    if (cmd->argc == 0)
-    {
-        /*
-        if ((cmd->protect & SETTING) != 0)
-            return 0;
-        */
-        return 1;
-    }
 
+    if (cmd->argc == 0)
+        return 1;
+
+    /* check if we are the first parser */
     unsigned int first = (cmd->argcf == 0);
     if (first)
     {
         cmd->argvf = xcalloc (cmd->argc, sizeof (char *));
         cmd->argcf = cmd->argc;
     }
-
-    for (i = 0, k = 0; i < (first ? (cmd->argc) : (cmd->argcf)); i++)
+    else
     {
-        char *tmp = (first ? cmd->argv[i] : cmd->argvf[i]);
-        if (((cmd->protected[i] & NONE) != 0 &&
-            strpbrk (tmp,"*?[]$`") != NULL))
+        /* if not, copy the args because we are gonna change it a lot */
+        argv = xcalloc (cmd->argcf, sizeof (char *));
+        argc = cmd->argcf;
+        for (i = 0; i < argc; i++)
+            argv[i] = xstrdup (cmd->argvf[i]);
+    }
+
+    for (i = 0, k = 0; i < (first ? (cmd->argc) : (argc)); i++)
+    {
+        char *tmp = (first ? cmd->argv[i] : argv[i]);
+
+        if (!(cmd->protected[i] & SINGLE_QUOTE) &&
+            strpbrk (tmp,"*?[]$`") != NULL)
         {
             wordexp_t p;
             int j;
@@ -99,20 +99,43 @@ sd_plugin_main (void **data)
             {
                 fprintf (stderr, "shelldone: syntax error near '%s'\n",
                                  tmp);
+
+                if (!first)
+                {
+                    int z;
+                    for (z = 0; z < argc; z++)
+                        xfree (argv[z]);
+                    xfree (argv);
+                }
+
                 return -1;
             }
             if (p.we_wordc == 0 || (p.we_wordc == 1 &&
                 xstrcmp (p.we_wordv[0],tmp) == 0))
             {
-                fprintf (stderr, "shelldone: '%s': no match found!\n",
-                                 tmp);
-                if (r == 0/* && p.we_wordc > 0*/)
-                    /* why did I do that p.we_wordc check? */
+                /*
+                fprintf (stderr, "shelldone: '%s' => '%s', k: %d %d\n",
+                                 tmp,
+                                 cmd->argvf[k],
+                                 k,
+                                 cmd->argcf);
+                */
+                if (r == 0)
                     wordfree (&p);
-                return -1;
+
+                if (cmd->argvf[k] != NULL)
+                    xfree (cmd->argvf[k]);
+
+                cmd->argvf[k] = xmalloc (1 * sizeof (char));
+                *(cmd->argvf[k]) = '\0';
+
+                k++;
+
+/*                return -1;*/
             }
-            if (r == 0)
+            else if (r == 0)
             {
+                int argcf = cmd->argcf;
                 if (p.we_wordc > 1)
                 {
                     cmd->argcf += p.we_wordc - 1;
@@ -122,7 +145,7 @@ sd_plugin_main (void **data)
                 for (j = 0; j < (int) p.we_wordc; j++)
                 {
                     char *t = xstrdup (p.we_wordv[j]);
-                    if (cmd->argvf[k+j] != NULL)
+                    if (k+j < argcf && cmd->argvf[k+j] != NULL)
                         xfree (cmd->argvf[k+j]);
                     cmd->argvf[k+j] = t;
                 }
@@ -130,83 +153,19 @@ sd_plugin_main (void **data)
                 wordfree (&p);
             }
         }
-        else if ((cmd->protected[i] & SINGLE_QUOTE) == 0 &&
-                 strpbrk (tmp,"$`") != NULL)
-        {
-            size_t s1, s2;
-            /*char **ttmp = xstrsplitspace (tmp, &s1);*/
-            char **ttmp = xstrsplit (tmp, " ", &s1);
-            int j,z;
-            if (s1 > 0)
-            {
-                char **ret = xcalloc (s1, sizeof (char *));
-                s2 = s1;
-                for (z = 0; z < (int) s1; z++)
-                    ret[z] = NULL;
-                for (z = 0; z < (int) s1; z++)
-                {
-                    wordexp_t p;
-                    int r = wordexp (ttmp[z], &p, 0);
-                    if (r != 0)
-                    {
-                        fprintf (stderr, "shelldone: syntax error near '%s'\n",
-                                         ttmp[z]);
-                        return -1;
-                    }
-                    if (p.we_wordc == 0 || (p.we_wordc == 1 &&
-                        xstrcmp (p.we_wordv[0],ttmp[z]) == 0))
-                    {
-                        if (r == 0 && p.we_wordc > 0)
-                            wordfree (&p);
-                        if (ret[k] != NULL)
-                            xfree (ret[k]);
-                        ret[k] = xstrdup (ttmp[z]);
-                        k++;
-                        continue;
-                    }
-                    if (r == 0)
-                    {
-                        if (p.we_wordc > 1)
-                        {
-                            s2 += p.we_wordc - 1;
-                            ret = xrealloc (ret, s2 * sizeof(char *));
-                        }
-
-                        for (j = 0; j < (int) p.we_wordc; j++)
-                        {
-                            char *t = xstrdup (p.we_wordv[j]);
-                            if (ret[z+j] != NULL)
-                                xfree (ret[z+j]);
-                            ret[z+j] = t;
-                        }
-                        z += j;
-                        wordfree (&p);
-                    }
-                }
-                if (cmd->argvf[k] != NULL)
-                    xfree (cmd->argvf[k]);
-                cmd->argvf[k] = xstrjoin (ret, s2, " ");
-                k++;
-                xfree_list (ret, s2);
-                xfree_list (ttmp, s1);
-            }
-        }
         else
         {
-            /*
-            if ((cmd->protected[i] & SETTING) != 0)
-            {
-                xputenv (cmd->argv[i]);
-                (cmd->argcf)--;
-                continue;
-            }
-            */
-
             if (cmd->argvf[k] != NULL)
                 xfree (cmd->argvf[k]);
             cmd->argvf[k] = xstrdup (cmd->argv[i]);
             k++;
         }
+    }
+    if (!first)
+    {
+        for (i = 0; i < argc; i++)
+            xfree (argv[i]);
+        xfree (argv);
     }
 
     return 1;
