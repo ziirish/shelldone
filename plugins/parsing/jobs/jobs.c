@@ -75,7 +75,9 @@ sd_plugin_main (void **data)
                 cmd->argvf = xrealloc (cmd->argvf, cmd->argc * sizeof(char *));
                 cmd->argcf = cmd->argc;
             }
-            if (first ? (*(cmd->argv[i]) == '%') : (*(cmd->argvf[i]) == '%'))
+            if (first ?
+                (xstrlen (cmd->argv[i]) > 0 && *(cmd->argv[i]) == '%') :
+                (xstrlen (cmd->argvf[i]) > 0 && *(cmd->argvf[i]) == '%'))
             {
                 int j = strtol (first ? (cmd->argv[i]+1) : (cmd->argvf[i]+1),
                                 NULL,
