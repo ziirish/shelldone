@@ -80,11 +80,13 @@ clear_env (void)
 }
 
 static int
-sd_putenv (const char *set)
+sd_putenv (const char *set, Protection prot)
 {
     sddata *tmp = xmalloc (sizeof (*tmp));
     tmp->content = xstrdup (set);
-    if (is_module_present ("wildcards"))
+/*    fprintf (stdout, "%s %d\n", set, prot);*/
+    if (is_module_present ("wildcards") && strpbrk (set,"*?[]$") != NULL &&
+        !(prot & SINGLE_QUOTE))
     {
         wordexp_t p;
         int r, i;
@@ -169,7 +171,7 @@ sd_plugin_main (void **data)
         (cmd->protect & SETTING) && cmd->argc < 1)
     {
         sd_debug ("setting: '%s'\n", cmd->cmd);
-        sd_putenv (cmd->cmd);
+        sd_putenv (cmd->cmd, cmd->protect);
         xfree (cmd->cmd);
         cmd->cmd = NULL;
     }
@@ -181,7 +183,7 @@ sd_plugin_main (void **data)
             char **argv = xcalloc (cmd->argc-1, sizeof (char *));
             Protection *prot = xcalloc (cmd->argc-1, sizeof (Protection));
             sd_debug ("setting: '%s'\n", cmd->cmd);
-            sd_putenv (cmd->cmd);
+            sd_putenv (cmd->cmd, cmd->protect);
             xfree (cmd->cmd);
             cmd->cmd = cmd->argv[0];
             cmd->protect = cmd->protected[0];
@@ -199,7 +201,7 @@ sd_plugin_main (void **data)
         if ((cmd->protect & SETTING) && cmd->argc == 0)
         {
             sd_debug ("setting: '%s'\n", cmd->cmd);
-            sd_putenv (cmd->cmd);
+            sd_putenv (cmd->cmd, cmd->protect);
             xfree (cmd->cmd);
             cmd->cmd = NULL;
         }
@@ -220,7 +222,7 @@ sd_plugin_main (void **data)
             if (cmd->protected[i] & SETTING)
             {
                 sd_debug ("setting: '%s'\n", cmd->argv[i]);
-                sd_putenv (cmd->argv[i]);
+                sd_putenv (cmd->argv[i], cmd->protected[i]);
             }
             else
             {
