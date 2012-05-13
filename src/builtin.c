@@ -42,6 +42,8 @@
 #include <errno.h>
 #include <sys/wait.h>
 #include <signal.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 #include "xutils.h"
 #include "builtin.h"
@@ -80,6 +82,8 @@ do{                                        \
 
 extern int ret_code;
 extern command *curr;
+extern char *plugindir;
+extern unsigned int plugindirset;
 
 extern int nb_found;
 extern mod mods[];
@@ -147,6 +151,7 @@ sd_module (int argc, char **argv, int in, int out, int err)
         sd_printerr ("module: missing argument\n");
         sd_print ("usage:\n\tmodule load|unload <module>\n");
         sd_print ("\tmodule show conf\n");
+        sd_print ("\tmodule set param value\n");
         sd_print ("\tmodule list loaded|available\n");
         close_filestream ();
         return 1;
@@ -163,9 +168,44 @@ sd_module (int argc, char **argv, int in, int out, int err)
         }
         if (xstrcmp (argv[1], "conf") == 0)
         {
-            sd_printerr ("module path: %s\n", SDPLDIR);
+            sd_print ("path: %s\n", plugindir);
             close_filestream ();
             return 0;
+        }
+    }
+
+    if (xstrcmp (argv[0], "set") == 0)
+    {
+        if (argc != 3)
+        {
+            sd_printerr ("module set: missing argument\n");
+            sd_print ("usage:\n\tmodule set param value\n");
+            close_filestream ();
+            return 2;
+        }
+        if (xstrcmp (argv[1], "path") == 0)
+        {
+            struct stat sb;
+            if (stat (argv[2], &sb) == -1)
+            {
+                sd_printerr ("stat: %s\n", strerror (errno));
+                close_filestream ();
+                return 3;
+            }
+            if ((sb.st_mode & S_IFMT) != S_IFDIR)
+            {
+                sd_printerr ("error: '%s' is not a directory\n", argv[2]);
+                close_filestream ();
+                return 4;
+            }
+            if (plugindirset)
+                xfree (plugindir);
+            plugindirset = TRUE;
+            plugindir = xstrdup (argv[2]);
+            sd_print ("path=%s\n", plugindir);
+            sd_print ("searching plugins in '%s'\n", plugindir);
+            clear_modules ();
+            init_modules ();
         }
     }
 
