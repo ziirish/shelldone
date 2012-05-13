@@ -44,6 +44,7 @@
 #include <string.h>
 #include <err.h>
 #include <stdarg.h>
+#include <limits.h>
 
 #include "xutils.h"
 
@@ -93,13 +94,16 @@ xfree (void *ptr)
 size_t
 xstrlen (const char *in)
 {
-    const char *s; 
+    const char *s;
+    size_t cpt;
     if (in == NULL)
     {
         return 0;
     }
-    for (s = in; *s; ++s); 
-    return (s - in); 
+    /* we want to avoid an overflow in case the input string isn't null
+       terminated */
+    for (s = in, cpt = 0; *s && cpt < UINT_MAX; ++s, cpt++);
+    return (s - in);
 }
 
 void *
