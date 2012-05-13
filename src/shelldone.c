@@ -61,8 +61,9 @@ unsigned int interrupted = FALSE;
 unsigned int running = FALSE;
 sigjmp_buf env;
 int val;
-log loglevel = 0;
+log loglevel = LERROR;
 char *plugindir;
+unsigned int plugindirset = FALSE;
 
 static void shelldone_init (void);
 static void shelldone_clean (void);
@@ -131,6 +132,8 @@ shelldone_clean (void)
     clear_history ();
     clear_jobs ();
     clear_modules ();
+    if (plugindirset)
+        xfree (plugindir);
 }
 
 /**
