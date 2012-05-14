@@ -84,8 +84,7 @@ sd_putenv (const char *set, Protection prot)
 {
     sddata *tmp = xmalloc (sizeof (*tmp));
     tmp->content = xstrdup (set);
-/*    fprintf (stdout, "%s %d\n", set, prot);*/
-    if (is_module_present ("wildcards") && strpbrk (set,"*?[]$") != NULL &&
+    if (is_module_present ("wildcards") && strpbrk (set,"*?[]$`") != NULL &&
         !(prot & SINGLE_QUOTE))
     {
         wordexp_t p;
@@ -95,7 +94,6 @@ sd_putenv (const char *set, Protection prot)
                              0,
                              (int)(xstrlen (tmp->content) - xstrlen (param)));
         ++param;
-/*        fprintf (stdout, "working on %s, ini: %s\n", param, ini);*/
         r = wordexp (param, &p, 0);
         if (p.we_wordc == 0 || (p.we_wordc == 1 &&
             xstrcmp (p.we_wordv[0], param) == 0))
@@ -119,14 +117,32 @@ sd_putenv (const char *set, Protection prot)
                 for (i = 0; i < (int) p.we_wordc; i++)
                     l += xstrlen (p.we_wordv[i]) + 1;
                 res = xmalloc (l * sizeof (char));
-                memset (res, 0, l);
+                memset (res, '\0', l);
                 for (i = 0; i < (int) p.we_wordc; i++)
-                    snprintf (res,
-                              xstrlen (res) + xstrlen (p.we_wordv[i]) + 1,
-                              "%s%s%c",
-                              res,
-                              p.we_wordv[i],
-                              i == (int) p.we_wordc ? '\0' : ' ');
+                {
+                    size_t s = xstrlen (res) + xstrlen (p.we_wordv[i]) + 2;
+                    char *tmp = xmalloc (s * sizeof (char));
+                    if (res != NULL)
+                    {
+                        snprintf (tmp,
+                                  s,
+                                  "%s%s%c",
+                                  res,
+                                  p.we_wordv[i],
+                                  i == (int) p.we_wordc ? '\0' : ' ');
+                    }
+                    else
+                    {
+                        snprintf (tmp,
+                                  s,
+                                  "%s%c",
+                                  p.we_wordv[i],
+                                  i == (int) p.we_wordc ? '\0' : ' ');
+                    }
+                    xfree (res);
+                    res = xstrdup (tmp);
+                    xfree (tmp);
+                }
 
                 wordfree (&p);
                 xfree (tmp->content);
