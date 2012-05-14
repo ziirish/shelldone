@@ -81,6 +81,13 @@ void xfree (void *ptr);
  */
 void *xmalloc (size_t size);
 
+/**
+ * Allocates temporary memory or exit and display an error
+ * @param size Requested size to allocate
+ * @return The address pointing to the memory-space
+ */
+void *xalloca (size_t size);
+
 /* Same as above for the calloc function */
 void *xcalloc (size_t nmem, size_t size);
 

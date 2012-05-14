@@ -45,6 +45,7 @@
 #include <err.h>
 #include <stdarg.h>
 #include <limits.h>
+#include <alloca.h>
 
 #include "xutils.h"
 
@@ -112,6 +113,15 @@ xmalloc (size_t size)
     void *ret = malloc (size);
     if (ret == NULL)
         err (2, "xmalloc can not allocate %lu bytes", (u_long) size);
+    return ret;
+}
+
+void *
+xalloca (size_t size)
+{
+    void *ret = alloca (size);
+    if (ret == NULL)
+        err (2, "xalloca can not allocate %lu bytes", (u_long) size);
     return ret;
 }
 
