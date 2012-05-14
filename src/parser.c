@@ -874,19 +874,19 @@ parse_line (const char *l)
             }
         }
         /* handle the quotes to protect some characters */
-        if (l[cpt] == '\'' && !(dquote || backslash))
+        if (l[cpt] == '\'' && !(dquote % 2 != 0 || backslash))
         {
             cpt++;
-            squote = !squote;
+            squote++;
             continue;
         }
-        if (l[cpt] == '"' && !(squote || backslash))
+        if (l[cpt] == '"' && !(squote % 2 != 0 || backslash))
         {
             cpt++;
-            dquote = !dquote;
+            dquote++;
             continue;
         }
-        if (l[cpt] == '=' && !(dquote || squote || backslash))
+        if (l[cpt] == '=' && !(dquote % 2 != 0 || squote % 2 != 0 || backslash))
             setting = 1;
         if (l[cpt] == '`' && !backslash)
             backquote = !backquote;
@@ -911,8 +911,8 @@ parse_line (const char *l)
          * command/argument
          */
         if (l[cpt] == ' ' &&
-            !(squote || dquote || bracket > 0 || backquote || backslash)/* &&
-            (cpt == 0 || (cpt > 0 && l[cpt-1] != '\\'))*/)
+            !(squote % 2 != 0 || dquote % 2 != 0 || bracket > 0 ||
+            backquote || backslash))
         {
             cpt++;
             /* 
@@ -924,9 +924,9 @@ parse_line (const char *l)
                 if (i != 0 && begin)
                 {
                     curr->content->cmd[i] = '\0';
-                    if (dquote)
+                    if (dquote % 2 == 0)
                         curr->content->protect = DOUBLE_QUOTE;
-                    else if (squote)
+                    else if (squote % 2 == 0)
                         curr->content->protect = SINGLE_QUOTE;
                     else 
                         curr->content->protect = NONE;
@@ -949,10 +949,10 @@ parse_line (const char *l)
             continue;
         }
         /* we found a comment */
-        if (!(squote || dquote) && l[cpt] == '#')
+        if (!(squote % 2 != 0 || dquote % 2 != 0) && l[cpt] == '#')
             break;
         /* handle the redirections (ie. cmd 2>&1 >/tmp/blah) */
-        if (!(squote || dquote) &&
+        if (!(squote % 2 != 0|| dquote % 2 != 0) &&
             (l[cpt] == '<' || l[cpt] == '>'))
         {
             unsigned int read;
@@ -1096,7 +1096,7 @@ parse_line (const char *l)
             continue;
         }
         /* end of command */
-        if (!(squote || dquote || backquote || bracket > 0) &&
+        if (!(squote % 2 != 0 || dquote % 2 != 0 || backquote || bracket > 0) &&
             (l[cpt] == '|' || l[cpt] == ';' || l[cpt] == '&'))
         {
             cpt++;
@@ -1234,9 +1234,9 @@ parse_line (const char *l)
                 curr->content->argv[curr->content->argc] = tmp;
             }
             curr->content->argv[curr->content->argc][i] = l[cpt];
-            if (dquote)
+            if (dquote > 0 && dquote % 2 == 0)
                 curr->content->protected[curr->content->argc] = DOUBLE_QUOTE;
-            else if (squote)
+            else if (squote > 0 && squote % 2 == 0)
                 curr->content->protected[curr->content->argc] = SINGLE_QUOTE;
             else
                 curr->content->protected[curr->content->argc] = NONE;
@@ -1250,9 +1250,9 @@ parse_line (const char *l)
     if (i != 0 && begin)
     {   
         curr->content->cmd[i] = '\0';
-        if (dquote)
+        if (dquote > 0 && dquote % 2 == 0)
             curr->content->protect = DOUBLE_QUOTE;
-        else if (squote)
+        else if (squote > 0 && squote % 2 == 0)
             curr->content->protect = SINGLE_QUOTE;
         else 
             curr->content->protect = NONE;
@@ -1262,9 +1262,9 @@ parse_line (const char *l)
     else if (i != 0)
     {   
         curr->content->argv[curr->content->argc][i] = '\0';
-        if (dquote)
+        if (dquote > 0 && dquote % 2 == 0)
             curr->content->protected[curr->content->argc] = DOUBLE_QUOTE;
-        else if (squote)
+        else if (squote > 0 && squote % 2 == 0)
             curr->content->protected[curr->content->argc] = SINGLE_QUOTE;
         else 
             curr->content->protected[curr->content->argc] = NONE;
