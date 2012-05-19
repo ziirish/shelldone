@@ -56,6 +56,7 @@
 #include "jobs.h"
 #include "modules.h"
 
+/* define our builtins */
 static const builtin calls[] = {{"cd", (cmd_builtin) sd_cd},
                                 {"bg", (cmd_builtin) sd_bg},
                                 {"fg", (cmd_builtin) sd_fg},
@@ -79,6 +80,7 @@ extern log loglevel;
 command *curr = NULL;
 int ret_code;
 
+/* signal handler for SIGTSTP */
 void
 sigstophandler (int sig)
 {
@@ -96,6 +98,7 @@ sigstophandler (int sig)
     (void) sig;
 }
 
+/* create a new empty command */
 command *
 new_command (void)
 {
@@ -122,6 +125,7 @@ new_command (void)
     return ret;
 }
 
+/* create a new empty command-line */
 command_line *
 new_cmd_line (void)
 {
@@ -135,6 +139,7 @@ new_cmd_line (void)
     return ret;
 }
 
+/* duplicates a command */
 command *
 copy_command (const command *src)
 {
@@ -196,6 +201,7 @@ copy_command (const command *src)
     return ret;
 }
 
+/* duplicates a command-line */
 command_line *
 copy_cmd_line (const command_line *src)
 {
@@ -209,6 +215,8 @@ copy_cmd_line (const command_line *src)
     return ret;
 }
 
+/* compares two commands in order to sort them using for instance the qsort
+ * function */
 int
 compare_command (command *c1, command *c2)
 {
@@ -231,6 +239,7 @@ compare_command (command *c1, command *c2)
     return ret;
 }
 
+/* frees a command */
 void
 free_command (command *ptr)
 {
@@ -262,6 +271,7 @@ free_command (command *ptr)
     }
 }
 
+/* frees a command-line */
 void
 free_cmd_line (command_line *ptr)
 {
@@ -272,161 +282,183 @@ free_cmd_line (command_line *ptr)
     }
 }
 
+/* executes a command */
 pid_t
 run_command (command_line *ptrc)
 {
+    /* checks if we actually have a command-line to execute */
     if (ptrc == NULL)
         return -1;
+    /* we just want to run a command */
     command *ptr = ptrc->content;
+    if (ptr == NULL)
+        return -1;
+    /* first of all we evaluate the args using the parsing modules */
     sdplist *modules = get_modules_list_by_type (PARSING);
     if (modules != NULL)
     {
         void *data[] = {(void *)&ptr};
         int r = launch_each_module (modules, data);
         free_sdplist (modules);
+        /* if something went wrong we do not execute the command */
         if (r != 1)
             return -1;
     }
     else
     {
+        /* if there are no modules we copy the args we parsed on the standard
+         * input with no further treatment */
         ptr->argvf = ptr->argv;
         ptr->argcf = ptr->argc;
     }
+    /* 
+     * during the parsing process it is possible to modify 'ptr' in order to
+     * interrupt the running process.
+     * example: '$ toto=tata' isn't an actual command so we just set the
+     * variable and exit 
+     */
     if (ptr->cmd == NULL)
         return -1;
     curr = ptr;
     pid_t r = -1;
-    if (ptr != NULL)
+
+    /* a little useless easter-egg */
+    size_t len = xstrlen (ptr->cmd);
+    if (len >= 2 && ptr->cmd[len - 1] == 'h' && ptr->cmd[len - 2] == 's')
     {
-        size_t len = xstrlen (ptr->cmd);
-        if (len >= 2 && ptr->cmd[len - 1] == 'h' && ptr->cmd[len - 2] == 's')
+        if (!(len > 3 && 
+            ptr->cmd[len - 1] == 'h' && 
+            ptr->cmd[len - 2] == 's' && 
+            ptr->cmd[len - 3] == '.')) 
         {
-            if (!(len > 3 && 
-                ptr->cmd[len - 1] == 'h' && 
-                ptr->cmd[len - 2] == 's' && 
-                ptr->cmd[len - 3] == '.')) 
-            {
-                fprintf (stdout, 
-                         "BAZINGA! I iz in ur term blocking ur Shell!\n");
-                ptr->builtin = TRUE;
-                return 0;
-            }
-        }
-        cmd_builtin call = NULL;
-        int i = 0;
-        while (calls[i].key != NULL)
-        {
-            if (xstrcmp (ptr->cmd, calls[i].key) == 0)
-            {
-                call = calls[i].func;
-                break;
-            }
-            i++;
-        }
-        if (call != NULL)
-        {
-            r = call (ptr->argcf, ptr->argvf, ptr->in, ptr->out, ptr->err);
-            ret_code = r;
+            fprintf (stdout, 
+                     "BAZINGA! I iz in ur term blocking ur Shell!\n");
             ptr->builtin = TRUE;
+            return 0;
         }
-        else
+    }
+    /* we search for a builtin */
+    cmd_builtin call = NULL;
+    int i = 0;
+    while (calls[i].key != NULL)
+    {
+        if (xstrcmp (ptr->cmd, calls[i].key) == 0)
         {
-            signal (SIGTSTP, sigstophandler);
-            r = fork ();
-            if (r == 0)
+            call = calls[i].func;
+            break;
+        }
+        i++;
+    }
+    /* if we found a builtin we run it without any special treatment */
+    if (call != NULL)
+    {
+        ptr->builtin = TRUE;
+        r = call (ptr->argcf, ptr->argvf, ptr->in, ptr->out, ptr->err);
+        ret_code = r;
+    }
+    else
+    {
+        /* ok, so here we have an actual command to run */
+        /* we register the sighandler */
+        signal (SIGTSTP, sigstophandler);
+        /* we fork */
+        r = fork ();
+        if (r == 0)
+        {
+            /* here is the child */
+            pid_t pid, pgid;
+            if (shell_is_interactive)
             {
-                pid_t pid, pgid;
-                if (shell_is_interactive)
-                {
-                    pid = getpid ();
-                    pgid = shell_pgid;
-                    if (pgid == 0)
-                        pgid = pid;
-                    setpgid (pid, pgid);
-                    if (ptr->flag == BG)
-                        signal (SIGTSTP, SIG_IGN);
-                    else
-                    {
-                        tcsetpgrp (shell_terminal, pgid);
-                        signal (SIGTSTP, SIG_DFL);
-                    }
-                    signal (SIGTTIN, SIG_DFL);
-                    signal (SIGTTOU, SIG_DFL);
-                    signal (SIGCHLD, SIG_DFL);
-                }
-                /*
-                {
-                    struct sigaction sa;
-                    sa.sa_handler = childstophandler;
-                    sigemptyset(&sa.sa_mask);
-                    sa.sa_flags = 0;
-                    if (sigaction (SIGTSTP, &sa, NULL) != 0)
-                        err (3, "sigaction");
-                }
-                */
-                /*
-                signal (SIGINT, SIG_DFL);
-                signal (SIGTSTP, SIG_DFL);
-                signal (SIGCHLD, sighandler);
-                */
-                /*
-                signal (SIGTSTP, sighandler);
-                signal (SIGSTOP, sighandler);
-                */
-                if (ptr->in != STDIN_FILENO)
-                {
-                    dup2 (ptr->in, STDIN_FILENO);
-                }
-                if (ptr->out != STDOUT_FILENO)
-                {
-                    if (ptr->out == STDERR_FILENO)
-                        dup2 (ptr->err, STDOUT_FILENO);
-                    else
-                        dup2 (ptr->out, STDOUT_FILENO);
-                }
-                if (ptr->err != STDERR_FILENO)
-                {
-                    if (ptr->err == STDOUT_FILENO)
-                        dup2 (ptr->out, STDERR_FILENO);
-                    else
-                        dup2 (ptr->err, STDERR_FILENO);
-                }
-                /* Here we add the argv[0] which is the program name */
-                char ** argv;
-                if (ptr->argcf > 0)
-                {
-                    int i;
-                    argv = xcalloc (ptr->argcf + 2, sizeof (char *));
-                    argv[0] = ptr->cmd;
-                    for (i = 1; i - 1 < ptr->argcf; i++)
-                    {
-                        /*
-                        if (xstrcmp ("$?", ptr->argv[i-1]) == 0 && 
-                            ptr->protected[i-1] != SINGLE_QUOTE)
-                        {
-                            char buf[128];
-                            snprintf (buf, 128, "%d", ret_code);
-                            argv[i] = buf;
-                        }
-                        else
-                        */
-                            argv[i] = ptr->argvf[i-1];
-                    }
-                    argv[i] = NULL;
-                }
+                pid = getpid ();
+                pgid = shell_pgid;
+                if (pgid == 0)
+                    pgid = pid;
+                setpgid (pid, pgid);
+                /* if the command is launched in background, ignore SIGTSTP */
+                if (ptr->flag == BG)
+                    signal (SIGTSTP, SIG_IGN);
                 else
-                    argv = (char *[]){ptr->cmd, NULL};
-                execvp (ptr->cmd, argv);
-
-                /* reset the loglevel so we are not spammed if the process
-                   fails */
-                loglevel = LERROR;
-
-
-                if (ptr->argcf > 0)
-                    xfree (argv);
-                err (1, "%s", ptr->cmd);
+                {
+                    tcsetpgrp (shell_terminal, pgid);
+                    signal (SIGTSTP, SIG_DFL);
+                }
+                signal (SIGTTIN, SIG_DFL);
+                signal (SIGTTOU, SIG_DFL);
+                signal (SIGCHLD, SIG_DFL);
             }
+            /*
+            {
+                struct sigaction sa;
+                sa.sa_handler = childstophandler;
+                sigemptyset(&sa.sa_mask);
+                sa.sa_flags = 0;
+                if (sigaction (SIGTSTP, &sa, NULL) != 0)
+                    err (3, "sigaction");
+            }
+            */
+            /*
+            signal (SIGINT, SIG_DFL);
+            signal (SIGTSTP, SIG_DFL);
+            signal (SIGCHLD, sighandler);
+            */
+            /*
+            signal (SIGTSTP, sighandler);
+            signal (SIGSTOP, sighandler);
+            */
+            /* prepare the file redirections */
+            if (ptr->in != STDIN_FILENO)
+            {
+                dup2 (ptr->in, STDIN_FILENO);
+            }
+            if (ptr->out != STDOUT_FILENO)
+            {
+                if (ptr->out == STDERR_FILENO)
+                    dup2 (ptr->err, STDOUT_FILENO);
+                else
+                    dup2 (ptr->out, STDOUT_FILENO);
+            }
+            if (ptr->err != STDERR_FILENO)
+            {
+                if (ptr->err == STDOUT_FILENO)
+                    dup2 (ptr->out, STDERR_FILENO);
+                else
+                    dup2 (ptr->err, STDERR_FILENO);
+            }
+            /* Here we add the argv[0] which is the program name */
+            char ** argv;
+            if (ptr->argcf > 0)
+            {
+                int i;
+                argv = xcalloc (ptr->argcf + 2, sizeof (char *));
+                argv[0] = ptr->cmd;
+                for (i = 1; i - 1 < ptr->argcf; i++)
+                {
+                    /*
+                    if (xstrcmp ("$?", ptr->argv[i-1]) == 0 && 
+                        ptr->protected[i-1] != SINGLE_QUOTE)
+                    {
+                        char buf[128];
+                        snprintf (buf, 128, "%d", ret_code);
+                        argv[i] = buf;
+                    }
+                    else
+                    */
+                        argv[i] = ptr->argvf[i-1];
+                }
+                argv[i] = NULL;
+            }
+            else
+                argv = (char *[]){ptr->cmd, NULL};
+            execvp (ptr->cmd, argv);
+
+            /* reset the loglevel so we are not spammed if the process
+               fails */
+            loglevel = LERROR;
+
+
+            if (ptr->argcf > 0)
+                xfree (argv);
+            err (1, "%s", ptr->cmd);
         }
     }
     return r;
