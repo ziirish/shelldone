@@ -64,6 +64,7 @@ int val;
 log loglevel = LERROR;
 char *plugindir;
 unsigned int plugindirset = FALSE;
+unsigned int notab = FALSE;
 
 static void shelldone_init (void);
 static void shelldone_clean (void);
@@ -79,8 +80,6 @@ shelldone_init (void)
     /* See if we are running interactively */
     shell_terminal = STDIN_FILENO;
     shell_is_interactive = isatty (shell_terminal);
-    /* initialiaze commands list */
-    init_command_list ();
     /* initialize history */
     init_history ();
     /* register the cleanup function */
@@ -128,7 +127,8 @@ shelldone_clean (void)
     free_line (l);
     li = NULL;
     l = NULL;
-    clear_command_list ();
+    if (!notab)
+        clear_command_list ();
     clear_history ();
     clear_jobs ();
     clear_modules ();
@@ -167,7 +167,7 @@ shelldone_loop (void)
         if (modules != NULL)
         {
             void *data[] = {(void *)&pt};
-            launch_each_module (modules, data);
+            foreach_module (modules, data, MAIN);
             free_sdplist (modules);
         }
         else
@@ -183,7 +183,7 @@ shelldone_loop (void)
             insert_history (li);
         /* parsing the input line into a command-line structure */
         l = parse_line (li);
-/*        dump_line (l);*/
+        dump_line (l);
         /* execute the command-line */
         running = TRUE;
         run_line (l);
@@ -204,10 +204,11 @@ shelldone_read_args (int argc, char **argv)
                 {"dir",     required_argument, 0, 'd'},
                 {"load",    required_argument, 0, 'l'},
                 {"help",    no_argument      , 0, 'h'},
+                {"no-tab",  no_argument      , 0, 'T'},
                 {0,         0,                 0,  0 }
                 };
 
-        c = getopt_long(argc, argv, "d:l:hv?",
+        c = getopt_long(argc, argv, "d:l:hvT",
                         long_options, &option_index);
 
         if (c == -1)
@@ -238,6 +239,10 @@ shelldone_read_args (int argc, char **argv)
             loglevel++;
             break;
 
+        case 'T':
+            notab = TRUE;
+            break;
+
         case '?':
         case 'h':
             fprintf (stdout, "\
@@ -246,6 +251,7 @@ to improve my programming skills and have some fun.\n\
 usage:\n\
     shelldone [-d|--dir=<where are the plugins>]\n\
               [-l|--load=plugin1[,plugin2[...]]]\n\
+              [-T|--no-tab]\n\
               [-v|-vv...]\n\
               [-h|-?|--help]\n\
 \n\
@@ -259,10 +265,10 @@ usage:\n\
     }
 
     if (optind < argc) {
-        printf("non-option ARGV-elements: ");
+        fprintf (stdout, "non-option ARGV-elements: ");
         while (optind < argc)
-            printf("%s ", argv[optind++]);
-        printf("\n");
+            fprintf (stdout, "%s ", argv[optind++]);
+        fprintf (stdout, "\n");
     }
 }
 
@@ -274,6 +280,10 @@ main (int argc, char **argv)
 
     /* reading arguments */
     shelldone_read_args (argc, argv);
+
+    /* initialiaze commands list */
+    if (!notab)
+        init_command_list ();
 
     /* infinite loop waiting for commands to launch */
     shelldone_loop ();
