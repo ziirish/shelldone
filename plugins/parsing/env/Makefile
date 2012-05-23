@@ -12,5 +12,5 @@ $(EXECUTABLE): clean
 	$(CC) $(MOD_LDFLAGS) $(MOD_CFLAGS) $(SOURCES) $(CFLAGS) -o $@ $(INCLUDES)
 
 clean:
-	test -f $(EXECUTABLE) && rm $(EXECUTABLE) || echo "Already cleared"
+	@(test -f $(EXECUTABLE) && rm $(EXECUTABLE) || echo "Already cleared")
 
