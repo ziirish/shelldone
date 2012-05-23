@@ -121,7 +121,8 @@ sd_putenv (const char *set, Protection prot)
                 for (i = 0; i < (int) p.we_wordc; i++)
                 {
                     size_t s = xstrlen (res) + xstrlen (p.we_wordv[i]) + 2;
-                    char *tmp = xmalloc (s * sizeof (char));
+                    char *tmp = NULL;
+                    xalloca(tmp, s * sizeof (char));
                     if (res != NULL)
                     {
                         snprintf (tmp,
@@ -141,7 +142,6 @@ sd_putenv (const char *set, Protection prot)
                     }
                     xfree (res);
                     res = xstrdup (tmp);
-                    xfree (tmp);
                 }
 
                 wordfree (&p);
