@@ -246,6 +246,8 @@ free_command (command *ptr)
     if (ptr != NULL)
     {
         int cpt;
+        /* if we have no PARSING module there is no reason we allocate memory
+         * for a new arguments array. In this case, we MUST NOT free memory */
         unsigned int copy = (ptr->argv == ptr->argvf);
         for (cpt = 0; cpt < ptr->argc; cpt++)
         {
@@ -298,7 +300,7 @@ run_command (command_line *ptrc)
     if (modules != NULL)
     {
         void *data[] = {(void *)&ptr};
-        int r = launch_each_module (modules, data);
+        int r = foreach_module (modules, data, MAIN);
         free_sdplist (modules);
         /* if something went wrong we do not execute the command */
         if (r != 1)

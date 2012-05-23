@@ -36,6 +36,10 @@
 
 #include "structs.h"
 
+/* hate to do that, but I don't have the choice because of my alloca macro */
+#include <err.h>
+#include <alloca.h>
+
 /* define a few useful MACRO */
 #define TRUE      1
 #define FALSE     0
@@ -84,9 +88,17 @@ void *xmalloc (size_t size);
 /**
  * Allocates temporary memory or exit and display an error
  * @param size Requested size to allocate
- * @return The address pointing to the memory-space
  */
-void *xalloca (size_t size);
+/**
+ * alloca() is allocated within the stack frame, that space is automatically
+ * freed if the function returns. that is the reason why we use a macro here
+ */
+#define xalloca(ret,size)                                            \
+do{                                                                  \
+    ret = alloca (size);                                             \
+    if (ret == NULL)                                                 \
+        err (2, "xalloca can not allocate %lu bytes",(u_long) size); \
+}while(0)
 
 /* Same as above for the calloc function */
 void *xcalloc (size_t nmem, size_t size);

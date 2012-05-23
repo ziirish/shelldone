@@ -803,12 +803,15 @@ dump_cmd (command_line *ptrc)
         command *ptr = ptrc->content;
         if (ptr != NULL) {            
             int i;
-            fprintf (stdout, "cmd: %s\n", ptr->cmd);
-            fprintf (stdout, "argc: %d\n", ptr->argc);
+            sd_info ("cmd: %s\n", ptr->cmd);
+            sd_info ("argc: %d\n", ptr->argc);
+/*            fprintf (stdout, "cmd: %s\n", ptr->cmd);*/
+/*            fprintf (stdout, "argc: %d\n", ptr->argc);*/
             for (i = 0; i < ptr->argc; i++)
-                fprintf (stdout, "argv[%d]: %s (%d)\n", i,
+                sd_info ("argv[%d]: %s (%d)\n", i,
                                                     ptr->argv[i],
                                                     ptr->protected[i]);
+/*                fprintf (stdout, "argv[%d]: %s (%d)\n", i,*/
         }
     }
 }
@@ -821,10 +824,12 @@ dump_line (input_line *ptr)
         command_line *tmp = ptr->head;
         int cpt = 0;
         if (ptr->size > 0)
-            fprintf (stdout, "nb commands: %d\n", ptr->size);
+            sd_info ("nb commands: %d\n", ptr->size);
+/*            fprintf (stdout, "nb commands: %d\n", ptr->size);*/
         while (tmp != NULL)
         {
-            fprintf (stdout, "=== Dump cmd n°%d ===\n", ++cpt);
+            sd_info ("=== Dump cmd n°%d ===\n", ++cpt);
+/*            fprintf (stdout, "=== Dump cmd n°%d ===\n", ++cpt);*/
             dump_cmd (tmp);
             tmp = tmp->next;
         }

@@ -50,11 +50,13 @@ void init_modules (void);
 void clear_modules (void);
 
 /**
- * Execute each main function of the modules present in the list
+ * Execute each given function of the modules present in the list
  * @param list List of modules
+ * @param data Datas to pass to the function
+ * @param f Bitmask of functions that should be called
  * @return status code: 1 on success
  */
-int launch_each_module (sdplist *list, void **data);
+int foreach_module (sdplist *list, void **data, function f);
 
 /**
  * Give a list of loaded modules by type

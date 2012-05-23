@@ -42,11 +42,19 @@ typedef struct _sdplugindata sdplugindata;
 
 typedef enum 
 {
-    PROMPT = 1,
-    PARSING,
-    BUILTIN,
-    UNKNOWN
+    UNKNOWN = 0x00,
+    PROMPT  = 0x01,
+    PARSING = 0x02,
+    BUILTIN = 0x04
 } sdplugin_type;
+
+typedef enum
+{
+    MAIN   = 0x01,
+    INIT   = 0x02,
+    CLEAN  = 0x04,
+    CONFIG = 0x08
+} function;
 
 struct _sdplugindata
 {
@@ -55,9 +63,10 @@ struct _sdplugindata
     unsigned int loaded;
     sdplugin_type type;
 
-    void (*init)  (sdplugindata *plugin);
-    void (*clean) (void);
-    int  (*main)  (void **data);
+    void (*init)   (sdplugindata *plugin);
+    void (*clean)  (void);
+    int  (*main)   (void **data);
+    void (*config) (void **data);
 
     void *lib;
 };

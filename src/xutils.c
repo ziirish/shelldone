@@ -45,7 +45,6 @@
 #include <err.h>
 #include <stdarg.h>
 #include <limits.h>
-#include <alloca.h>
 
 #include "xutils.h"
 
@@ -117,15 +116,6 @@ xmalloc (size_t size)
 }
 
 void *
-xalloca (size_t size)
-{
-    void *ret = alloca (size);
-    if (ret == NULL)
-        err (2, "xalloca can not allocate %lu bytes", (u_long) size);
-    return ret;
-}
-
-void *
 xcalloc (size_t nmem, size_t size)
 {
     void *ret = calloc (nmem, size);
@@ -172,6 +162,7 @@ xstrcmp (const char *c1, const char *c2)
     size_t s1 = xstrlen (c1);
     size_t s2 = xstrlen (c2);
 
+    /* little optimisation based on the strings length */
     if (s1 == 0 && s2 == 0)
         return 0;
     if (s1 == 0)
@@ -437,6 +428,4 @@ sd_print (log level, const char *msg, ...)
         vfprintf (out, msg, args);
         va_end (args);
     }
-    else
-        fprintf (out, msg);
 }

@@ -213,6 +213,7 @@ new_sdplugindata (void)
     ret->init = NULL;
     ret->clean = NULL;
     ret->main = NULL;
+    ret->config = NULL;
     ret->lib = NULL;
 
     return ret;
@@ -305,6 +306,8 @@ copy_sdplugindata (sdplugindata *src)
             memcpy (&(ret->clean), &(src->clean), sizeof (ret->clean));
         if (src->main != NULL)
             memcpy (&(ret->main), &(src->main), sizeof (ret->main));
+        if (src->config != NULL)
+            memcpy (&(ret->config), &(src->config), sizeof (ret->config));
         ret->name = src->name;
         ret->prio = src->prio;
         ret->type = src->type;
@@ -349,7 +352,7 @@ is_module_present (const char *name)
 
 /* calls the main functions of the plugins present in the given list */
 int
-launch_each_module (sdplist *list, void **data)
+foreach_module (sdplist *list, void **data, function f)
 {
     int r = 1;
     if (list != NULL)
@@ -357,7 +360,14 @@ launch_each_module (sdplist *list, void **data)
         sdplugin *tmp = list->head;
         while (tmp != NULL && r == 1)
         {
-            r = tmp->content->main (data);
+            if ((f & CLEAN) && tmp->content->clean != NULL)
+                tmp->content->clean ();
+            if (f & INIT)
+                tmp->content->init (tmp->content);
+            if (f & MAIN)
+                r = tmp->content->main (data);
+            if ((f & CONFIG) && tmp->content->config != NULL)
+                tmp->content->config (data);
             tmp = tmp->next;
         }
     }
@@ -384,7 +394,7 @@ get_modules_list_by_type (sdplugin_type type)
     /* first of all, are there any plugins of the given type? */
     while (curr != NULL)
     {
-        if (curr->content->type == type)
+        if (curr->content->type & type)
             cpt++;
         curr = curr->next;
     }
@@ -400,7 +410,7 @@ get_modules_list_by_type (sdplugin_type type)
     while (curr != NULL && i < cpt)
     {
         /* we store a copy of all the plugins we found in a temporary array */
-        if (curr->content->type == type)
+        if (curr->content->type & type)
         {
             tmp[i] = copy_sdplugin (curr);
             i++;
@@ -522,6 +532,14 @@ sd_plugin_main (void **data)
 }
 
 void
+sd_plugin_config (void **data)
+{
+    (void) data;
+
+    return;
+}
+
+void
 sd_plugin_clean (void)
 {
     return;
@@ -580,12 +598,27 @@ load_module (const char *path)
     error = dlerror ();
     if (error != NULL)
     {
+        sd_debug ("%s\n", error);
         ptr->clean = NULL;
     }
     else
     {
         memcpy (&(ptr->clean), &func, sizeof (ptr->clean));
     }
+
+    /* optionaly we search for a config function */
+    func = dlsym (ptr->lib, "sd_plugin_config");
+    error = dlerror ();
+    if (error != NULL)
+    {
+        sd_debug ("%s\n", error);
+        ptr->config = NULL;
+    }
+    else
+    {
+        memcpy (&(ptr->config), &func, sizeof (ptr->config));
+    }
+
     ptr->loaded = TRUE;
 
     /* here we have a plugin with all the requirements */
