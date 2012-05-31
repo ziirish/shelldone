@@ -49,6 +49,54 @@
 #include <structs.h>
 #include <xutils.h>
 
+static char *
+escape_char (char **src, char esc)
+{
+    if (src == NULL || *src == NULL)
+        return src == NULL ? NULL : *src;
+
+    int backslash = 0, i, j;
+    unsigned int found = FALSE;
+    char *string = *src, *tmp = NULL;
+    size_t len = xstrlen (string);
+    for (i = 0; string[i] != '\0'; i++)
+    {
+        if (string[i] == '\\' && (i < 1 ||
+            string[i-1] != '\\' ||
+            (string[i-1] == '\\' && backslash != 0 && backslash % 2 == 0)))
+            backslash++;
+        if (string[i] == esc && (i < 1 ||
+            string[i-1] != '\\' ||
+            (string[i-1] =='\\' && backslash != 0 && backslash % 2 == 0)))
+        {
+            len++;
+            found = TRUE;
+        }
+    }
+
+    if (!found)
+        return *src;
+
+    xalloca (tmp, len + 1);
+    for (i = 0, j = 0; string[i] != '\0' && j < (int) (len + 1); i++, j++)
+    {
+        if (string[i] == esc && (i < 1 ||
+            string[i-1] != '\\' ||
+            (string[i-1] =='\\' && backslash != 0 && backslash % 2 == 0)))
+        {
+            tmp[j] = '\\';
+            j++;
+            tmp[j] = string[i];
+        }
+        else
+            tmp[j] = string[i];
+    }
+    tmp[j] = '\0';
+    xfree (*src);
+    *src = xstrdup (tmp);
+    return *src;
+}
+
 void
 sd_plugin_init (sdplugindata *plugin)
 {
@@ -89,7 +137,9 @@ sd_plugin_main (void **data)
     {
         char *tmp = (first ? cmd->argv[i] : argv[i]);
 
-        if (!(cmd->protected[i] & SINGLE_QUOTE) &&
+        escape_char (NULL, '\'');
+
+        if (/*!(cmd->protected[i] & SINGLE_QUOTE) &&*/
             strpbrk (tmp,"*?[]$`") != NULL)
         {
             wordexp_t p;

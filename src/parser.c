@@ -845,6 +845,7 @@ parse_line (const char *l)
     int new_word = 0, first = 1, new_command = 0, begin = 1, i = 0, factor = 1,
         factor2 = 1, arg = 0, squote = 0, dquote = 0, bracket = 0,
         backquote = 0, setting = 0, backslash = 0, lastslash = 0;
+    unsigned int wildcards = is_module_present ("wildcards");
     command_line *curr = NULL;
     i = 0;
     /* let's create the line container */
@@ -872,7 +873,7 @@ parse_line (const char *l)
         {
             backslash = 1;
             lastslash = 1;
-            if (!is_module_present ("wildcards"))
+            if (!wildcards)
             {
                 cpt++;
                 continue;
@@ -881,15 +882,21 @@ parse_line (const char *l)
         /* handle the quotes to protect some characters */
         if (l[cpt] == '\'' && !(dquote % 2 != 0 || backslash))
         {
-            cpt++;
             squote++;
-            continue;
+            if (!wildcards || setting)
+            {
+                cpt++;
+                continue;
+            }
         }
         if (l[cpt] == '"' && !(squote % 2 != 0 || backslash))
         {
-            cpt++;
             dquote++;
-            continue;
+            if (!wildcards || setting)
+            {
+                cpt++;
+                continue;
+            }
         }
         if (l[cpt] == '=' && !(dquote % 2 != 0 || squote % 2 != 0 || backslash))
             setting = 1;
@@ -957,7 +964,7 @@ parse_line (const char *l)
         if (!(squote % 2 != 0 || dquote % 2 != 0) && l[cpt] == '#')
             break;
         /* handle the redirections (ie. cmd 2>&1 >/tmp/blah) */
-        if (!(squote % 2 != 0|| dquote % 2 != 0) &&
+        if (!(squote % 2 != 0 || dquote % 2 != 0 || backslash) &&
             (l[cpt] == '<' || l[cpt] == '>'))
         {
             unsigned int read;
