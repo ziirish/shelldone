@@ -66,6 +66,8 @@ char *plugindir;
 unsigned int plugindirset = FALSE;
 unsigned int notab = FALSE;
 
+extern int ret_code;
+
 static void shelldone_init (void);
 static void shelldone_clean (void);
 static void siginthandler (int signal);
@@ -203,12 +205,13 @@ shelldone_read_args (int argc, char **argv)
         static struct option long_options[] = {
                 {"dir",     required_argument, 0, 'd'},
                 {"load",    required_argument, 0, 'l'},
+                {"command", required_argument, 0, 'c'},
                 {"help",    no_argument      , 0, 'h'},
                 {"no-tab",  no_argument      , 0, 'T'},
                 {0,         0,                 0,  0 }
                 };
 
-        c = getopt_long(argc, argv, "d:l:hvT",
+        c = getopt_long(argc, argv, "d:l:c:hvT",
                         long_options, &option_index);
 
         if (c == -1)
@@ -243,6 +246,12 @@ shelldone_read_args (int argc, char **argv)
             notab = TRUE;
             break;
 
+        case 'c':
+            l = parse_line (optarg);
+            run_line (l);
+            exit (ret_code);
+            break;
+
         case '?':
         case 'h':
             fprintf (stdout, "\
@@ -251,6 +260,7 @@ to improve my programming skills and have some fun.\n\
 usage:\n\
     shelldone [-d|--dir=<where are the plugins>]\n\
               [-l|--load=plugin1[,plugin2[...]]]\n\
+              [-c|--command=<command to execute>\n\
               [-T|--no-tab]\n\
               [-v|-vv...]\n\
               [-h|-?|--help]\n\
