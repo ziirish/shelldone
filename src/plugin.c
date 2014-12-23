@@ -421,7 +421,7 @@ get_modules_list_by_type (sdplugin_type type)
     /* we can then sort the array by plugin priority */
     qsort (tmp, cpt, sizeof (*tmp), module_order);
 
-    /* we finaly populate our list */
+    /* we finally populate our list */
     for (i = 0; i < cpt; i++)
         list_append ((sdlist **)&ret, (sddata *)tmp[i]);
 
