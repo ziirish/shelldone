@@ -1318,7 +1318,6 @@ get_char (const char input[5],
           unsigned int *dquote)
 {
     size_t len;
-    (void) prompt;
     if (input[4] == 0)
         len = xstrlen (input);
     else
@@ -1345,7 +1344,23 @@ get_char (const char input[5],
             }
             return -1;
         case CTRL_D:
+            /* exit the application */
+            exit (0);
         case CTRL_L:
+        {
+            char *tmp;
+            size_t len = xstrlen(prompt) + *cpt + 1;
+            tmp = xmalloc (len * sizeof (char));
+            snprintf (tmp, len, "%s%s", prompt, *ret);
+            /*
+             * Here we clean-up the screen, we then have to re-print the data we
+             * already had
+             */
+            write (1, "\33[H\33[2J", 7);
+            fprintf (stdout, "%s", tmp);
+            fflush (stdout);
+            xfree (tmp);
+        }
         case CTRL_R:
             return -1;
         default:
