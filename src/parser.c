@@ -160,6 +160,9 @@ init_command_list (void)
 {
     xdebug (NULL);
     char *path = getenv ("PATH");
+    if (!path) {
+        err(2, "\nError: could not get the content of the 'PATH' variable!");
+    }
     size_t size;
     char **paths = xstrsplit (path, ":", &size);
     int i, j, k = 0, l, n = 1;
