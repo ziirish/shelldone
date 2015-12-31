@@ -303,5 +303,5 @@ main (int argc, char **argv)
     (void) argv;
 
 /* we don't need to cleanup anything since we registered the cleanup function */
-    return 0;
+    return ret_code;
 }
