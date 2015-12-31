@@ -80,6 +80,7 @@ extern unsigned int interrupted;
 extern pid_t shell_pgid;
 extern int shell_terminal;
 extern int shell_is_interactive;
+extern int ret_code;
 
 /* static functions */
 static void init_ioctl (void);
@@ -1344,14 +1345,25 @@ get_char (const char input[5],
             }
             return -1;
         case CTRL_D:
+            xfree (*ret);
             /* exit the application */
-            exit (0);
+            exit (ret_code);
         case CTRL_L:
         {
-            char *tmp;
-            size_t len = xstrlen(prompt) + *cpt + 1;
-            tmp = xmalloc (len * sizeof (char));
-            snprintf (tmp, len, "%s%s", prompt, *ret);
+            char *tmp, *cur = "";
+            size_t len2 = xstrlen(prompt) + *cpt + 1;
+            if (*cpt > 0)
+            {
+                int i;
+                cur = xmalloc ((*cpt + 1) * sizeof (char));
+                for (i = 0; i < *cpt; i++)
+                    cur[i] = (*ret)[i];
+                cur[i] = '\0';
+            }
+            tmp = xmalloc (len2 * sizeof (char));
+            snprintf (tmp, len2, "%s%s", prompt, cur);
+            if (*cpt > 0)
+                xfree (cur);
             /*
              * Here we clean-up the screen, we then have to re-print the data we
              * already had
@@ -1360,6 +1372,7 @@ get_char (const char input[5],
             fprintf (stdout, "%s", tmp);
             fflush (stdout);
             xfree (tmp);
+            return -1;
         }
         case CTRL_R:
             return -1;
