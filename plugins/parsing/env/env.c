@@ -173,7 +173,7 @@ sd_plugin_init (sdplugindata *plugin)
 {
     plugin->name = "env";
     plugin->type = PARSING;
-    plugin->prio = -2;
+    plugin->prio = -5;
     init_env ();
 }
 

@@ -130,25 +130,27 @@ sd_plugin_main (void **data)
         argv = xcalloc (cmd->argcf, sizeof (char *));
         argc = cmd->argcf;
         for (i = 0; i < argc; i++)
+        {
             argv[i] = xstrdup (cmd->argvf[i]);
+        }
     }
 
     for (i = 0, k = 0; i < (first ? (cmd->argc) : (argc)); i++)
     {
-        char *tmp = (first ? cmd->argv[i] : argv[i]);
+        char *temp = (first ? cmd->argv[i] : argv[i]);
 
         escape_char (NULL, '\'');
 
         if (/*!(cmd->protected[i] & SINGLE_QUOTE) &&*/
-            strpbrk (tmp,"*?[]$`") != NULL)
+            strpbrk (temp,"*?[]$`") != NULL)
         {
             wordexp_t p;
             int j;
-            int r = wordexp (tmp, &p, 0);
+            int r = wordexp (temp, &p, 0);
             if (r != 0)
             {
                 fprintf (stderr, "shelldone: syntax error near '%s'\n",
-                                 tmp);
+                                 temp);
 
                 if (!first)
                 {
@@ -161,11 +163,11 @@ sd_plugin_main (void **data)
                 return -1;
             }
             if (p.we_wordc == 0 || (p.we_wordc == 1 &&
-                xstrcmp (p.we_wordv[0],tmp) == 0))
+                xstrcmp (p.we_wordv[0],temp) == 0))
             {
                 /*
                 fprintf (stderr, "shelldone: '%s' => '%s', k: %d %d\n",
-                                 tmp,
+                                 temp,
                                  cmd->argvf[k],
                                  k,
                                  cmd->argcf);
@@ -205,9 +207,12 @@ sd_plugin_main (void **data)
         }
         else
         {
-            if (cmd->argvf[k] != NULL)
-                xfree (cmd->argvf[k]);
-            cmd->argvf[k] = xstrdup (cmd->argv[i]);
+            if (first)
+            {
+                if (cmd->argvf[k] != NULL)
+                    xfree (cmd->argvf[k]);
+                cmd->argvf[k] = xstrdup (cmd->argv[i]);
+            }
             k++;
         }
     }
@@ -217,6 +222,8 @@ sd_plugin_main (void **data)
             xfree (argv[i]);
         xfree (argv);
     }
+    if (first)
+        cmd->argcf = k;
 
     return 1;
 }

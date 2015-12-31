@@ -59,7 +59,7 @@ sd_plugin_main (void **data)
     void *tmp = data[0];
     command **tmpc = (command **)tmp;
     command *cmd = *tmpc;
-    if (cmd->argc > 0)
+    if (cmd->argc > 0 && cmd->cmd && xstrcmp(cmd->cmd, "kill") == 0)
     {
         unsigned int first = (cmd->argcf == 0);
         if (first)
@@ -89,7 +89,6 @@ sd_plugin_main (void **data)
                         xfree (cmd->argvf[k]);
                     cmd->argvf[k] = xmalloc (64 * sizeof (char));
                     snprintf (cmd->argvf[k], 64, "%d", jb->content->pid);
-                    k++;
                 }
                 else
                 {
@@ -97,15 +96,13 @@ sd_plugin_main (void **data)
                     return -1;
                 }
             }
-            else
+            else if (first)
             {
-                if (first && cmd->argvf[k] != NULL)
-                {
+                if (cmd->argvf[k] != NULL)
                     xfree (cmd->argvf[k]);
-                    cmd->argvf[k] = xstrdup (cmd->argv[i]);
-                }
-                k++;
+                cmd->argvf[k] = xstrdup (cmd->argv[i]);
             }
+            k++;
         }
         if (first)
             cmd->argcf = k;
