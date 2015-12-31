@@ -59,7 +59,10 @@ sd_plugin_main (void **data)
     void *tmp = data[0];
     command **tmpc = (command **)tmp;
     command *cmd = *tmpc;
-    if (cmd->argc > 0 && cmd->cmd && xstrcmp(cmd->cmd, "kill") == 0)
+    if (cmd->argc > 0 && cmd->cmd &&
+            (xstrcmp(cmd->cmd, "kill") == 0 ||
+             xstrcmp(cmd->cmd, "bg") == 0 ||
+             xstrcmp(cmd->cmd, "fg") == 0))
     {
         unsigned int first = (cmd->argcf == 0);
         if (first)
