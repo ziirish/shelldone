@@ -328,10 +328,10 @@ run_command (command_line *ptrc)
     size_t len = xstrlen (ptr->cmd);
     if (len >= 2 && ptr->cmd[len - 1] == 'h' && ptr->cmd[len - 2] == 's')
     {
-        if (!(len > 3 && 
-            ptr->cmd[len - 1] == 'h' && 
-            ptr->cmd[len - 2] == 's' && 
-            ptr->cmd[len - 3] == '.')) 
+        if (len > 3 &&
+            ptr->cmd[len - 1] == 'h' &&
+            ptr->cmd[len - 2] == 's' &&
+            ptr->cmd[len - 3] == '.')
         {
             fprintf (stdout, 
                      "BAZINGA! I iz in ur term blocking ur Shell!\n");
@@ -607,5 +607,6 @@ run_line (input_line *ptr)
             cmd = cmd->next;
         }
     }
+    sd_info ("Returned: %d\n", ret_code);
 /*    exit (ret_code);*/
 }
