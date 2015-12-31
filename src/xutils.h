@@ -138,6 +138,17 @@ int xstrcmp (const char *c1, const char *c2);
 char *xstrcat (char *dest, const char *src);
 
 /**
+ * Replaces a part of a string
+ * @param string Original string
+ * @param substr Substring we want to replace
+ * @param replacement Replacement string
+ * @return new allocated string
+ */
+char *xstrreplace (const char *string,
+                   const char *substr,
+                   const char *replacement);
+
+/**
  * Splits a string into an array of strings using the given tokenizer
  * @param src String to split
  * @param token On which token we split the string

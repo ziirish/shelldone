@@ -203,7 +203,7 @@ xstrsplit (const char *src, const char *token, size_t *size)
         xfree (init);
         return NULL;
     }
-    ret = xcalloc (10, sizeof (char *));
+    ret = xcalloc (10 + 1, sizeof (char *));
     while (tmp != NULL)
     {
         if ((int) *size > n * 10)
@@ -352,6 +352,56 @@ syntax_error (const char input[], int size, int ind)
         fprintf (stderr, " ");
     fprintf (stderr, "^\n");
     fprintf (stderr, "syntax error near '%c'\n", input[xmin (ind, size)]);
+}
+
+char *
+xstrreplace (const char *string, const char *substr, const char *replacement)
+{
+    char *tok = NULL;
+    char *newstr = NULL;
+    char *oldstr = NULL;
+    /* if either substr or replacement is NULL, duplicate string a let caller handle it */
+    if ( substr == NULL || replacement == NULL )
+    {
+        return xstrdup (string);
+    }
+    newstr = xstrdup (string);
+    while ( (tok = strstr ( newstr, substr )) )
+    {
+        oldstr = newstr;
+        newstr = xmalloc (
+            xstrlen ( oldstr ) -
+            xstrlen ( substr ) +
+            xstrlen ( replacement ) +
+            1
+        );
+        /*failed to alloc mem, free old string and return NULL */
+        if ( newstr == NULL ){
+            xfree (oldstr);
+            return NULL;
+        }
+        memcpy ( newstr, oldstr, tok - oldstr );
+        memcpy (
+            newstr + (tok - oldstr),
+            replacement,
+            xstrlen ( replacement )
+        );
+        memcpy (
+            newstr + (tok - oldstr) + xstrlen( replacement ),
+            tok + xstrlen ( substr ),
+            xstrlen ( oldstr ) - xstrlen ( substr ) - ( tok - oldstr )
+        );
+        memset (
+            newstr +
+            xstrlen ( oldstr ) -
+            xstrlen ( substr ) +
+            xstrlen ( replacement ),
+            0,
+            1
+        );
+        xfree (oldstr);
+    }
+    return newstr;
 }
 
 char *
