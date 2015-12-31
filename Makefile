@@ -30,12 +30,12 @@ plugins: $(SO)
 all: plugins $(EXECUTABLE)
 	@echo "Building shelldone"
 
-clean-all:
+clean-all: clean
 	@$(foreach obj, $(SO), eval "test -e $(obj) && rm $(obj) 2>/dev/null || true")
-	@echo "Cleaning up all things"
+	@echo "Cleaning all things up"
 
 clean:
 	@$(foreach obj, $(OBJECTS), eval "test -e $(obj) && rm $(obj) 2>/dev/null || true")
 	@test -e $(EXECUTABLE) && rm $(EXECUTABLE) 2>/dev/null || true
-	@echo "Cleaning up things"
+	@echo "Cleaning things up"
 
