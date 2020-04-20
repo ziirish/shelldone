@@ -31,8 +31,8 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef _BSD_SOURCE
-    #define _BSD_SOURCE
+#ifndef _DEFAULT_SOURCE
+    #define _DEFAULT_SOURCE
 #endif
 
 #include <stdio.h>
@@ -634,7 +634,7 @@ parse_exe (char **split,
         if (sub)
         {
             ret = xstrsub (list[ind_min], 0, len);
-            for (i = 0; i < (int) xstrlen (tmp); i++, (*cpt)--);
+            for (i = 0; i < (int) xstrlen (tmp); i++, (*cpt)--)
                 fprintf (stdout, "\b");
         }
 

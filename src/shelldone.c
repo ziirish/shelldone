@@ -103,7 +103,7 @@ shelldone_init (void)
     if (shell_is_interactive)
     {
         /* Loop until we are in the foreground */
-        while (tcgetpgrp (shell_terminal) != (shell_pgid = getpgrp ()))
+        while (tcgetpgrp (shell_terminal) != (shell_pgid = getpgid (0)))
             kill (- shell_pgid, SIGTTIN);
         /* Ignore interactive and job-control signals */
         /*
