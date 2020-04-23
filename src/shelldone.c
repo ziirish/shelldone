@@ -44,6 +44,7 @@
 #include <err.h>
 #include <setjmp.h>
 #include <getopt.h>
+#include <termios.h>
 
 #include "xutils.h"
 #include "parser.h"
@@ -52,6 +53,7 @@
 #include "modules.h"
 #include "structs.h"
 
+struct termios shell_tmodes;
 pid_t shell_pgid;
 int shell_terminal;
 int shell_is_interactive;
@@ -65,6 +67,7 @@ log loglevel = LERROR;
 char *plugindir;
 unsigned int plugindirset = FALSE;
 unsigned int notab = FALSE;
+extern command *curr;
 
 extern int ret_code;
 
@@ -106,17 +109,17 @@ shelldone_init (void)
         while (tcgetpgrp (shell_terminal) != (shell_pgid = getpgid (0)))
             kill (- shell_pgid, SIGTTIN);
         /* Ignore interactive and job-control signals */
-        /*
         signal (SIGTTIN, SIG_IGN);
         signal (SIGTTOU, SIG_IGN);
         signal (SIGCHLD, SIG_IGN);
-        */
         /* Put ourselves in our own process group */
         shell_pgid = getpid ();
         if (setpgid (shell_pgid, shell_pgid) < 0)
             err (1, "Couldn't put the shell in its own process group");
         /* Grab control of the terminal */
         tcsetpgrp (shell_terminal, shell_pgid);
+        /* Save default terminal attributes for shell.  */
+        tcgetattr (shell_terminal, &shell_tmodes);
     }
 }
 

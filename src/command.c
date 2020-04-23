@@ -48,6 +48,7 @@
 #include <signal.h>
 #include <string.h>
 #include <setjmp.h>
+#include <termios.h>
 
 #include "builtin.h"
 #include "command.h"
@@ -72,6 +73,7 @@ static const builtin calls[] = {{"cd", (cmd_builtin) sd_cd},
 extern pid_t shell_pgid;
 extern int shell_is_interactive;
 extern int shell_terminal;
+extern struct termios shell_tmodes;
 extern unsigned int interrupted;
 extern sigjmp_buf env;
 extern int val;
@@ -84,6 +86,13 @@ int ret_code;
 void
 sigstophandler (int sig)
 {
+    /* Put the shell back in the foreground.  */
+    tcsetpgrp (shell_terminal, shell_pgid);
+
+    /* Restore the shell’s terminal modes.  */
+    tcgetattr (shell_terminal, &curr->tmodes);
+    tcsetattr (shell_terminal, TCSADRAIN, &shell_tmodes);
+    fprintf (stdout, "ICI!\n");
     fprintf (stdout, "\n");
 /*    signal (SIGTSTP, SIG_DFL);*/
 /*    kill (curr->pid, SIGTSTP);*/
@@ -286,7 +295,7 @@ free_cmd_line (command_line *ptr)
 
 /* executes a command */
 pid_t
-run_command (command_line *ptrc)
+run_command (command_line *ptrc, pid_t pgid)
 {
     /* checks if we actually have a command-line to execute */
     if (ptrc == NULL)
@@ -368,20 +377,20 @@ run_command (command_line *ptrc)
         if (r == 0)
         {
             /* here is the child */
-            pid_t pid, pgid;
+            pid_t pid, our_pgid;
             if (shell_is_interactive)
             {
                 pid = getpid ();
-                pgid = shell_pgid;
-                if (pgid == 0)
-                    pgid = pid;
-                setpgid (pid, pgid);
+                our_pgid = pgid;
+                if (our_pgid <= 0)
+                    our_pgid = pid;
+                setpgid (pid, our_pgid);
                 /* if the command is launched in background, ignore SIGTSTP */
                 if (ptr->flag == BG)
                     signal (SIGTSTP, SIG_IGN);
                 else
                 {
-                    tcsetpgrp (shell_terminal, pgid);
+                    tcsetpgrp (shell_terminal, our_pgid);
                     signal (SIGTSTP, SIG_DFL);
                 }
                 signal (SIGTTIN, SIG_DFL);
@@ -461,6 +470,8 @@ run_command (command_line *ptrc)
             if (ptr->argcf > 0)
                 xfree (argv);
             err (1, "%s", ptr->cmd);
+        } else if (r != -1) {
+            setpgid(r, r);
         }
     }
     return r;
@@ -474,6 +485,8 @@ run_line (input_line *ptr)
     if (ptr != NULL)
     {
         command_line *cmd = ptr->head;
+        command *head;
+        if (cmd != NULL) head = cmd->content;
         while (cmd != NULL)
         {
             switch (cmd->content->flag)
@@ -486,7 +499,7 @@ run_line (input_line *ptr)
             case BG:
             case END:
             {
-                pid_t p = run_command (cmd);
+                pid_t p = run_command (cmd, head->pid);
                 cmd->content->pid = p;
                 /* p should never be equal to -1 */
                 if (p != -1 && !cmd->content->builtin)
@@ -499,6 +512,12 @@ run_line (input_line *ptr)
                     else
                     {
                         waitpid (p, &ret, WUNTRACED);
+                        /* Put the shell back in the foreground.  */
+                        tcsetpgrp (shell_terminal, shell_pgid);
+
+                        /* Restore the shell’s terminal modes.  */
+                        tcgetattr (shell_terminal, &cmd->content->tmodes);
+                        tcsetattr (shell_terminal, TCSADRAIN, &shell_tmodes);
                         ret_code = WEXITSTATUS(ret);
                     }
                 }
@@ -523,11 +542,17 @@ run_line (input_line *ptr)
                 if (exec != NULL)
                     save = exec;
                 exec = cmd;
-                p = run_command (exec);
+                p = run_command (exec, -1);
                 exec->content->pid = p;
                 if (p != -1 && !exec->content->builtin)
                 {
                     waitpid (p, &ret, WUNTRACED);
+                    /* Put the shell back in the foreground.  */
+                    tcsetpgrp (shell_terminal, shell_pgid);
+
+                    /* Restore the shell’s terminal modes.  */
+                    tcgetattr (shell_terminal, &exec->content->tmodes);
+                    tcsetattr (shell_terminal, TCSADRAIN, &shell_tmodes);
                     ret_code = WEXITSTATUS(ret);
                 }
                 else if (p == -1)
@@ -540,11 +565,17 @@ run_line (input_line *ptr)
                                         != 0) : 
                                         (ret_code != 0)))
                 {
-                    p = run_command (exec);
+                    p = run_command (exec, -1);
                     exec->content->pid = p;
                     if (p != -1 && !exec->content->builtin)
                     {
                         waitpid (p, &ret, WUNTRACED);
+                        /* Put the shell back in the foreground.  */
+                        tcsetpgrp (shell_terminal, shell_pgid);
+
+                        /* Restore the shell’s terminal modes.  */
+                        tcgetattr (shell_terminal, &exec->content->tmodes);
+                        tcsetattr (shell_terminal, TCSADRAIN, &shell_tmodes);
                         ret_code = WEXITSTATUS(ret);
                     }
                     else if (p == -1)
@@ -560,13 +591,14 @@ run_line (input_line *ptr)
                 int nb = 1, i, fd[2];
                 pid_t *p;
                 unsigned int *builtins;
-                command_line *exec = cmd, *save = cmd;
+                command_line *exec = cmd, *save = cmd, **cmds;
                 while (exec != NULL && exec->content->flag == PIPE)
                 {
                     nb++;
                     exec = exec->next;
                 }
                 p = xmalloc (nb * sizeof (pid_t));
+                cmds = xmalloc (nb * sizeof (command_line));
                 builtins = xmalloc (nb * sizeof (unsigned int));
                 exec = cmd;
                 for (i = 0; i < nb; i++)
@@ -574,8 +606,9 @@ run_line (input_line *ptr)
                     pipe (fd);
                     if (i != nb - 1)
                         exec->content->out = fd[1];
-                    p[i] = run_command (exec);
+                    p[i] = run_command (exec, head->pid);
                     builtins[i] = exec->content->builtin;
+                    cmds[i] = exec;
                     exec->content->pid = p[i];
                     if (exec->content->out != STDOUT_FILENO && 
                         exec->content->out != STDERR_FILENO)
@@ -593,6 +626,12 @@ run_line (input_line *ptr)
                     if (p[i] != -1 && !builtins[i])
                     {
                         waitpid (p[i], &ret, WUNTRACED);
+                        /* Put the shell back in the foreground.  */
+                        tcsetpgrp (shell_terminal, shell_pgid);
+
+                        /* Restore the shell’s terminal modes.  */
+                        tcgetattr (shell_terminal, &cmds[i]->content->tmodes);
+                        tcsetattr (shell_terminal, TCSADRAIN, &shell_tmodes);
                         ret_code = WEXITSTATUS(ret);
                     }
                     else if (p[i] == -1)
@@ -600,6 +639,7 @@ run_line (input_line *ptr)
                 }
                 xfree (p);
                 xfree (builtins);
+                xfree (cmds);
                 cmd = save;
                 break;
             }

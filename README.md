@@ -1,17 +1,34 @@
+Shelldone
+=========
+
 Shelldone is just a shell written in C from scratch so I can play with it.
 I guess it will never be as complete as zsh/csh/bash/whatever, but actually it
 is not my goal.
 I'm just working on it to learn and improve my skills in C programming.
 
+Notes to self
+-------------
+
+Currently, the job handling is kind of broken (`Ctrl+Z` doesn't work anymore for
+instance). This is because from now on, we put every *job* in its own process
+group instead of the shell's one. Thus we need to attach the foreground job the
+tty so the `SIGTSTP` signal is not handled anymore by the parent process.
+What we need to do now, is to *enqueue* every *job* regardless if it is sent to
+the foreground or to the background.
+
 Compilation
 -----------
 
+```
 $ make
+```
 
 Execution
 ---------
 
+```
 $ ./shelldone
+```
 
 Features
 --------
@@ -26,6 +43,7 @@ Features
 Example
 -------
 
+```
 ziirish@carbon:~/workspace/shelldone/src$ valgrind --leak-check=full
 --show-reachable=yes ./shelldone
 ==22418== Memcheck, a memory error detector
@@ -97,3 +115,4 @@ shell> quit
 ==22418==
 ==22418== For counts of detected and suppressed errors, rerun with: -v
 ==22418== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 4 from 4)
+```

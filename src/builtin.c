@@ -44,6 +44,7 @@
 #include <signal.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <termios.h>
 
 #include "xutils.h"
 #include "builtin.h"
@@ -80,6 +81,7 @@ do{                                        \
 
 #define sd_printerr(...) fprintf(fderr,__VA_ARGS__)
 
+extern int shell_terminal;
 extern int ret_code;
 extern command *curr;
 extern char *plugindir;
@@ -354,7 +356,8 @@ sd_bg (int argc, char **argv, int in, int out, int err)
                           tmp->pid,
                           tmp->cmd);
                 tmp->stopped = FALSE;
-                kill (tmp->pid, SIGCONT);
+                tcsetattr (shell_terminal, TCSADRAIN, &tmp->tmodes);
+                kill (- tmp->pid, SIGCONT);
             }
         }
         else
@@ -382,7 +385,8 @@ sd_bg (int argc, char **argv, int in, int out, int err)
                               tmp->content->pid,
                               tmp->content->cmd);
                     tmp->content->stopped = FALSE;
-                    kill (tmp->content->pid, SIGCONT);
+                    tcsetattr (shell_terminal, TCSADRAIN, &tmp->content->tmodes);
+                    kill (- tmp->content->pid, SIGCONT);
                 }
             }
             else
@@ -420,7 +424,8 @@ sd_fg (int argc, char **argv, int in, int out, int err)
                           tmp->pid,
                           tmp->cmd);
                 tmp->stopped = FALSE;
-                kill (tmp->pid, SIGCONT);
+                tcsetattr (shell_terminal, TCSADRAIN, &tmp->tmodes);
+                kill (- tmp->pid, SIGCONT);
             }
             signal (SIGTSTP, sigstophandler);
             curr = tmp;
@@ -463,7 +468,8 @@ sd_fg (int argc, char **argv, int in, int out, int err)
                               tmp->content->pid,
                               tmp->content->cmd);
                     tmp->content->stopped = FALSE;
-                    kill (tmp->content->pid, SIGCONT);
+                    tcsetattr (shell_terminal, TCSADRAIN, &tmp->content->tmodes);
+                    kill (- tmp->content->pid, SIGCONT);
                 }
                 signal (SIGTSTP, sigstophandler);
                 curr = copy_command (tmp->content);

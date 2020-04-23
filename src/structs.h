@@ -35,6 +35,7 @@
 #define _STRUCTS_H_
 
 #include <sys/types.h>
+#include <termios.h>
 
 /* Structure that represents a command */
 typedef struct _command_line command_line;
@@ -113,6 +114,8 @@ struct _command {
     pid_t pid;
     /* job id */
     int job;
+    /* terminal configuration of the command */
+    struct termios tmodes;
 };
 
 struct _command_line {
