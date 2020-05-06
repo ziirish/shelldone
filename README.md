@@ -15,6 +15,10 @@ group instead of the shell's one. Thus we need to attach the foreground job the
 tty so the `SIGTSTP` signal is not handled anymore by the parent process.
 What we need to do now, is to *enqueue* every *job* regardless if it is sent to
 the foreground or to the background.
+There is also an issue with the way SIGCHLD is handled currently. We **must
+not** ignore it otherwise we cannot await our children later on.
+What we need to do instead is to block it and then unblock it at the beginning
+of a new line parsing.
 
 Compilation
 -----------
